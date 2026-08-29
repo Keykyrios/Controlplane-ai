@@ -33,11 +33,11 @@ where $\hat{y}_t$ is model confidence and $q_t$ is a calibrated correctness esti
 
 **Cost risk** — logistic squashing of relative cost overrun into $[0,1]$:
 
-$$c_t = \sigma\!\left(\frac{\kappa_t - \bar{\kappa}(\tau_t)}{\bar{\kappa}(\tau_t)}\right), \quad \sigma(z) = \frac{1}{1+e^{-z}}$$
+$$c_t = \sigma\biggl(\frac{\kappa_t - \bar{\kappa}(\tau_t)}{\bar{\kappa}(\tau_t)}\biggr), \quad \sigma(z) = \frac{1}{1+e^{-z}}$$
 
 **Responsibility risk** — coordinate-wise maximum of bias, safety, and data-leakage scores:
 
-$$r_t = \max(b_t,\; s_t,\; \ell_t)$$
+$$r_t = \max(b_t, s_t, \ell_t)$$
 
 reflecting that a response is only as safe as its worst violated constraint.
 
@@ -69,7 +69,7 @@ Encoding cost: $T_{\text{encode}}(n_t) = O(n_t \cdot D)$, executable via SIMD in
 
 We track the **shape** of the distribution of recent responses using the Vietoris-Rips filtration over the fingerprint sliding window $X_t = \{h_{t-w+1}, \dots, h_t\}$. The drift score is the 2-Wasserstein distance between the current persistence diagram and a reference:
 
-$$\Delta_t = W_2(D_t, D_0) = \left(\inf_{\gamma: D_t \to D_0} \sum_{u \in D_t} \|u - \gamma(u)\|_2^2\right)^{1/2}$$
+$$\Delta_t = W_2(D_t, D_0) = \biggl(\inf_{\gamma} \sum_{u \in D_t} \|u - \gamma(u)\|_2^2\biggr)^{1/2}$$
 
 By the **stability theorem** (Cohen-Steiner, Edelsbrunner, Harer): $d_B(D(X), D(X')) \le \|X - X'\|_\infty$ — the persistence diagram changes by at most as much as the data changes.
 
@@ -109,9 +109,9 @@ $$\text{Discord}_t = x_t^\top L_{\mathcal{F}} x_t = \|\delta x_t\|^2$$
 
 The routing policy is a **tropical (max-plus) polynomial** — provably piecewise-linear with an explicit combinatorial description:
 
-$$\phi_a(z) = \max_{1 \le k \le m_a}\left(w_{a,k} + \sum_{i=1}^{7} \alpha_{a,k,i}\, z_i\right)$$
+$$\phi_a(z) = \max_{1 \le k \le m_a}\biggl(w_{a,k} + \sum_{i=1}^{7} \alpha_{a,k,i} z_i\biggr)$$
 
-$$a^*(z) = \arg\max_a\; \phi_a(z), \quad a \in \{\text{pass}, \text{edit}, \text{block}, \text{escalate}\}$$
+$$a^*(z) = \arg\max_a \phi_a(z), \quad a \in \lbrace\text{pass, edit, block, escalate}\rbrace$$
 
 Every coefficient $w_{a,k}$ and exponent $\alpha_{a,k,i}$ is individually inspectable and auditable.
 
@@ -119,7 +119,7 @@ Every coefficient $w_{a,k}$ and exponent $\alpha_{a,k,i}$ is individually inspec
 
 Per-tier thresholds are calibrated by distribution-free conformal risk control. For a calibration set of $n$ exchangeable pairs, the threshold:
 
-$$\hat{\lambda} = \inf\left\{\lambda \in \Lambda : \frac{n}{n+1}\hat{R}_n(\lambda) + \frac{B}{n+1} \le \alpha\right\}$$
+$$\hat{\lambda} = \inf\bigl\lbrace\lambda \in \Lambda : \tfrac{n}{n+1}\hat{R}_n(\lambda) + \tfrac{B}{n+1} \le \alpha\bigr\rbrace$$
 
 guarantees:
 
