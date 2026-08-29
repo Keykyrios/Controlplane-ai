@@ -1,0 +1,38 @@
+__pycache__/
+*.pyc
+*.pyo
+.env
+.venv/
+venv/
+node_modules/
+dist/
+.vite/
+*.egg-info/
+*.egg
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+*.log
+*.db
+*.sqlite3
+.DS_Store
+Thumbs.db
+*.swp
+*.swo
+*~
+
+# Build artifacts
+frontend/dist/
+frontend/.vite/
+
+# IDE
+.idea/
+.vscode/
+*.code-workspace
+
+# Local dev files (not pushed)
+ControlPlane_Manifold_Implementation_Blueprint.md
+ControlPlane_Manifold_Style_Reference.md
+main.tex
+fig_*.png
+docs/business-proposal.md
