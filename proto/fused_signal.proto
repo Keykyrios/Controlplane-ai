@@ -1,0 +1,20 @@
+syntax = "proto3";
+
+package controlplane;
+
+// ============================================================================
+// fused_signal.proto — Table 3, the 7-dimensional fused signal z_t
+// ============================================================================
+
+message FusedSignal {
+  string response_id = 1;
+  double p_t = 2;            // Performance risk
+  double c_t = 3;            // Cost risk
+  double r_t = 4;            // Responsibility risk
+  double delta_t = 5;        // Topological drift, Eq. 17
+  double surprise_t = 6;     // Algorithmic surprise, Eq. 19
+  double kappa_v_t = 7;      // Spectral condition number, Eq. 22
+  double discord_t = 8;      // Sheaf discord, Eq. 28
+  string tier = 9;           // A | B | C
+  string jurisdiction = 10;  // e.g. "EU", "US-CA", ...
+}

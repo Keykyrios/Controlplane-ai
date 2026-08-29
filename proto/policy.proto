@@ -1,0 +1,29 @@
+syntax = "proto3";
+
+package controlplane;
+
+// ============================================================================
+// policy.proto — Section 22, per-tier/per-jurisdiction policy manifold
+// ============================================================================
+
+message TropicalWeights {
+  repeated double weights = 1;              // w_{a,k}
+  repeated ExponentVector exponents = 2;    // α_{a,k,i} for i in 1..7
+}
+
+message ExponentVector {
+  repeated int32 values = 1;  // 7 integers, one per fused-signal dimension
+}
+
+message PolicyConfig {
+  string tier = 1;                         // A | B | C
+  string jurisdiction = 2;                 // e.g. "EU", "US-generic"
+  double conformal_alpha = 3;              // α_τ(j), Eq. 50
+  map<string, TropicalWeights> tropical_weights = 4;  // keyed by action
+  int32  latency_budget_ms = 5;
+  int32  min_calibration_set_size = 6;
+  int32  version = 7;
+  string author = 8;
+  string approved_by = 9;
+  bool   is_active = 10;
+}

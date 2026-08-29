@@ -1,0 +1,39 @@
+syntax = "proto3";
+
+package controlplane;
+
+// ============================================================================
+// audit_record.proto — Section 19, cryptographic audit ledger
+// ============================================================================
+
+message AuditRecord {
+  string record_id = 1;
+  string prev_hash = 2;
+  string record_hash = 3;
+  string session_id = 4;
+  string response_id = 5;
+  int64  timestamp_ns = 6;
+
+  // Payload
+  RiskObservables risk_observables = 7;
+  RiskMultivector risk_multivector = 8;
+  FusedSignal fused_signal = 9;
+  RoutingDecision routing_decision = 10;
+  string fingerprint_hash = 11;
+
+  // Crypto metadata
+  string algo_id = 12;         // e.g. "X25519-MLKEM768-v1"
+  bytes  encrypted_payload = 13;
+}
+
+message RoutingDecision {
+  string response_id = 1;
+  string action = 2;           // pass | edit | block | escalate
+  map<string, double> scores = 3;
+  string tier = 4;
+  string jurisdiction = 5;
+}
+
+// Import dependency
+import "risk.proto";
+import "fused_signal.proto";

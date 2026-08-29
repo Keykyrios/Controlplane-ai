@@ -1,0 +1,36 @@
+syntax = "proto3";
+
+package controlplane;
+
+// ============================================================================
+// risk.proto — Section 5, Equations 2-9
+// ============================================================================
+
+// The three scalar risk observables for a single response x_t.
+message RiskObservables {
+  string session_id = 1;
+  string response_id = 2;
+  double p_t = 3;       // performance risk, Eq. 2: ŷ_t · (1 - q_t)
+  double c_t = 4;       // cost risk, Eq. 3: σ((κ_t - κ̄(τ_t)) / κ̄(τ_t))
+  double r_t = 5;       // responsibility risk, Eq. 4: max(b_t, s_t, ℓ_t)
+  double b_t = 6;       // bias sub-score
+  double s_t = 7;       // safety sub-score
+  double l_pii_t = 8;   // Section 5.4: structured-PII sub-score
+  double l_mi_t = 9;    // Section 5.4: membership-plausibility sub-score
+  int64  timestamp_ns = 10;
+}
+
+// The risk multivector R_t in Cl(3,0).
+// 8 components: scalar + 3 vector + 3 bivector + 1 trivector
+message RiskMultivector {
+  string response_id = 1;
+  double scalar = 2;               // grade 0 (unused, kept for completeness)
+  double e1 = 3;                   // p_t — performance axis
+  double e2 = 4;                   // c_t — cost axis
+  double e3 = 5;                   // r_t — responsibility axis
+  double e12 = 6;                  // π_12 — perf×cost interaction, Eq. 7
+  double e13 = 7;                  // π_13 — perf×resp interaction, Eq. 12
+  double e23 = 8;                  // π_23 — cost×resp interaction
+  double e123 = 9;                 // π_123 — triple interaction
+  double wedge_novelty = 10;       // ||R_t ∧ R_{t-1}||, Proposition 5.4
+}
