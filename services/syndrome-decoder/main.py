@@ -1,0 +1,145 @@
+"""
+Syndrome Decoding Service — Section 16
+========================================
+Implements Equations 40-41: redundant fact verification via
+minimum-weight matching on a consistency graph.
+
+σ_{jk} = 1[agree(a_j, a_k) = false]
+
+Ê_t = argmin_{E} |E| s.t. flipping assertions in E explains σ_t
+
+The syndrome decode localizes to specific assertions rather than
+returning a single scalar q_t, enabling the routing policy to select
+"edit" rather than "block" when the error is small and correctable.
+
+Whitepaper: Section 16, Eq. 40-41
+Blueprint: Section 12
+"""
+
+from __future__ import annotations
+import numpy as np
+import networkx as nx
+from fastapi import FastAPI
+from pydantic import BaseModel, Field
+
+app = FastAPI(
+    title="ControlPlane Manifold — Syndrome Decoder",
+    description="Section 16: Eq. 40-41 — minimum-weight matching for fact verification",
+    version="1.0.0",
+)
+
+
+def text_overlap(a: str, b: str) -> bool:
+    """Check if two assertions share entity/claim overlap."""
+    tokens_a = set(a.lower().split())
+    tokens_b = set(b.lower().split())
+    overlap = len(tokens_a & tokens_b) / max(1, min(len(tokens_a), len(tokens_b)))
+    return overlap > 0.3
+
+
+def verify_consistency(a: str, b: str) -> bool:
+    """
+    Check if two overlapping assertions are logically consistent.
+    In production, this reuses the retrieval/self-consistency verifiers from q_t.
+    """
+    # Heuristic: check for contradictory markers
+    contradictions = [
+        ("is", "is not"), ("was", "was not"), ("can", "cannot"),
+        ("true", "false"), ("yes", "no"), ("increase", "decrease"),
+        ("above", "below"), ("more", "less"), ("positive", "negative"),
+    ]
+    a_lower, b_lower = a.lower(), b.lower()
+    for pos, neg in contradictions:
+        if (pos in a_lower and neg in b_lower) or (neg in a_lower and pos in b_lower):
+            return False
+    return True
+
+
+def build_consistency_graph(assertions: list[str]) -> nx.Graph:
+    """
+    Build the consistency graph over assertions.
+    
+    Nodes: assertions
+    Edges: pairs of overlapping assertions that disagree
+    Edge weight: σ_{jk} = 1 when agree(a_j, a_k) = false, Eq. 40
+    
+    Whitepaper: Eq. 40
+    """
+    G = nx.Graph()
+    G.add_nodes_from(range(len(assertions)))
+    
+    for i in range(len(assertions)):
+        for j in range(i + 1, len(assertions)):
+            if text_overlap(assertions[i], assertions[j]):
+                if not verify_consistency(assertions[i], assertions[j]):
+                    G.add_edge(i, j, weight=1)
+    
+    return G
+
+
+def decode_min_error_set(G: nx.Graph) -> set[int]:
+    """
+    Decode the syndrome vector to find the minimum error set.
+    
+    Ê_t = argmin_{E} |E| s.t. flipping E explains σ_t
+    
+    Approximated via minimum-weight matching over triggered edges.
+    
+    Whitepaper: Eq. 41
+    """
+    if G.number_of_edges() == 0:
+        return set()
+    
+    matching = nx.algorithms.matching.min_weight_matching(G)
+    flagged = {node for edge in matching for node in edge}
+    return flagged
+
+
+class SyndromeRequest(BaseModel):
+    response_id: str
+    assertions: list[str]
+
+
+class SyndromeResponse(BaseModel):
+    response_id: str
+    flagged_indices: list[int]
+    flagged_assertions: list[str]
+    syndrome_vector: list[int]
+    num_inconsistencies: int
+    correctable: bool
+    error_set_size: int
+
+
+@app.get("/health")
+async def health():
+    return {"status": "healthy", "service": "syndrome-decoder", "section": "16"}
+
+
+@app.post("/syndrome/decode", response_model=SyndromeResponse)
+async def decode_syndrome(req: SyndromeRequest) -> SyndromeResponse:
+    """Decode syndrome vector and identify minimum error set. (Eq. 41)"""
+    G = build_consistency_graph(req.assertions)
+    flagged = decode_min_error_set(G)
+    
+    syndrome = [0] * len(req.assertions)
+    for i in flagged:
+        if i < len(syndrome):
+            syndrome[i] = 1
+    
+    flagged_list = sorted(flagged)
+    correctable = len(flagged) <= 2
+    
+    return SyndromeResponse(
+        response_id=req.response_id,
+        flagged_indices=flagged_list,
+        flagged_assertions=[req.assertions[i] for i in flagged_list if i < len(req.assertions)],
+        syndrome_vector=syndrome,
+        num_inconsistencies=G.number_of_edges(),
+        correctable=correctable,
+        error_set_size=len(flagged),
+    )
+
+
+if __name__ == "__main__":
+    import uvicorn
+    uvicorn.run(app, host="0.0.0.0", port=8012)
