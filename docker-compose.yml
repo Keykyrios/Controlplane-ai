@@ -1,0 +1,272 @@
+# ControlPlane Manifold — Docker Compose
+# Full microservice deployment with all infrastructure dependencies.
+
+services:
+  # ===========================================================================
+  # Infrastructure
+  # ===========================================================================
+  
+  postgres:
+    image: timescale/timescaledb:latest-pg16
+    environment:
+      POSTGRES_DB: controlplane
+      POSTGRES_USER: controlplane
+      POSTGRES_PASSWORD: controlplane_secret
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+      - ./infra/postgres/init.sql:/docker-entrypoint-initdb.d/init.sql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U controlplane"]
+      interval: 5s
+      retries: 5
+
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "6379:6379"
+    command: redis-server --maxmemory 512mb --maxmemory-policy allkeys-lru
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      retries: 5
+
+  nats:
+    image: nats:2-alpine
+    ports:
+      - "4222:4222"
+      - "8222:8222"
+    command: --jetstream --store_dir /data
+    volumes:
+      - natsdata:/data
+
+  # ===========================================================================
+  # Core Math Services (Phase 1 — unblock everything)
+  # ===========================================================================
+
+  risk-observables:
+    build:
+      context: .
+      dockerfile: services/risk-observables/Dockerfile
+    ports:
+      - "8001:8001"
+    environment:
+      - SERVICE_PORT=8001
+      - POSTGRES_URL=postgresql://controlplane:controlplane_secret@postgres:5432/controlplane
+      - REDIS_URL=redis://redis:6379
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+
+  risk-multivector:
+    build:
+      context: .
+      dockerfile: services/risk-multivector/Dockerfile
+    ports:
+      - "8002:8002"
+    environment:
+      - SERVICE_PORT=8002
+      - RISK_OBSERVABLES_URL=http://risk-observables:8001
+
+  fingerprint:
+    build:
+      context: .
+      dockerfile: services/fingerprint/Dockerfile
+    ports:
+      - "8003:8003"
+    environment:
+      - SERVICE_PORT=8003
+      - REDIS_URL=redis://redis:6379
+    depends_on:
+      redis:
+        condition: service_healthy
+
+  drift:
+    build:
+      context: .
+      dockerfile: services/drift/Dockerfile
+    ports:
+      - "8004:8004"
+    environment:
+      - SERVICE_PORT=8004
+      - REDIS_URL=redis://redis:6379
+      - FINGERPRINT_URL=http://fingerprint:8003
+    depends_on:
+      - fingerprint
+
+  surprise:
+    build:
+      context: .
+      dockerfile: services/surprise/Dockerfile
+    ports:
+      - "8005:8005"
+    environment:
+      - SERVICE_PORT=8005
+      - REDIS_URL=redis://redis:6379
+
+  spectral:
+    build:
+      context: .
+      dockerfile: services/spectral/Dockerfile
+    ports:
+      - "8006:8006"
+    environment:
+      - SERVICE_PORT=8006
+      - POSTGRES_URL=postgresql://controlplane:controlplane_secret@postgres:5432/controlplane
+
+  sheaf-fusion:
+    build:
+      context: .
+      dockerfile: services/sheaf-fusion/Dockerfile
+    ports:
+      - "8007:8007"
+    environment:
+      - SERVICE_PORT=8007
+
+  # ===========================================================================
+  # Routing & Calibration
+  # ===========================================================================
+
+  tropical-routing:
+    build:
+      context: .
+      dockerfile: services/tropical-routing/Dockerfile
+    ports:
+      - "8009:8009"
+    environment:
+      - SERVICE_PORT=8009
+      - POLICY_MANIFOLD_URL=http://policy-manifold:8016
+
+  conformal-calibration:
+    build:
+      context: .
+      dockerfile: services/conformal-calibration/Dockerfile
+    ports:
+      - "8010:8010"
+    environment:
+      - SERVICE_PORT=8010
+      - POSTGRES_URL=postgresql://controlplane:controlplane_secret@postgres:5432/controlplane
+
+  policy-manifold:
+    build:
+      context: .
+      dockerfile: services/policy-manifold/Dockerfile
+    ports:
+      - "8016:8016"
+    environment:
+      - SERVICE_PORT=8016
+      - POSTGRES_URL=postgresql://controlplane:controlplane_secret@postgres:5432/controlplane
+
+  # ===========================================================================
+  # Cross-Cutting Services
+  # ===========================================================================
+
+  syndrome-decoder:
+    build:
+      context: .
+      dockerfile: services/syndrome-decoder/Dockerfile
+    ports:
+      - "8012:8012"
+    environment:
+      - SERVICE_PORT=8012
+
+  thermo-accounting:
+    build:
+      context: .
+      dockerfile: services/thermo-accounting/Dockerfile
+    ports:
+      - "8013:8013"
+    environment:
+      - SERVICE_PORT=8013
+
+  queueing-monitor:
+    build:
+      context: .
+      dockerfile: services/queueing-monitor/Dockerfile
+    ports:
+      - "8014:8014"
+    environment:
+      - SERVICE_PORT=8014
+
+  game-theory-patcher:
+    build:
+      context: .
+      dockerfile: services/game-theory-patcher/Dockerfile
+    ports:
+      - "8011:8011"
+    environment:
+      - SERVICE_PORT=8011
+      - POSTGRES_URL=postgresql://controlplane:controlplane_secret@postgres:5432/controlplane
+
+  audit-ledger:
+    build:
+      context: .
+      dockerfile: services/audit-ledger/Dockerfile
+    ports:
+      - "8015:8015"
+    environment:
+      - SERVICE_PORT=8015
+      - POSTGRES_URL=postgresql://controlplane:controlplane_secret@postgres:5432/controlplane
+      - REDIS_URL=redis://redis:6379
+
+  # ===========================================================================
+  # Orchestrator (Algorithm 1)
+  # ===========================================================================
+
+  orchestrator:
+    build:
+      context: .
+      dockerfile: services/orchestrator/Dockerfile
+    ports:
+      - "8000:8000"
+    environment:
+      - SERVICE_PORT=8000
+      - RISK_OBSERVABLES_URL=http://risk-observables:8001
+      - RISK_MULTIVECTOR_URL=http://risk-multivector:8002
+      - FINGERPRINT_URL=http://fingerprint:8003
+      - DRIFT_URL=http://drift:8004
+      - SURPRISE_URL=http://surprise:8005
+      - SPECTRAL_URL=http://spectral:8006
+      - SHEAF_FUSION_URL=http://sheaf-fusion:8007
+      - TROPICAL_ROUTING_URL=http://tropical-routing:8009
+      - CONFORMAL_CALIBRATION_URL=http://conformal-calibration:8010
+      - SYNDROME_DECODER_URL=http://syndrome-decoder:8012
+      - AUDIT_LEDGER_URL=http://audit-ledger:8015
+      - POLICY_MANIFOLD_URL=http://policy-manifold:8016
+      - QUEUEING_MONITOR_URL=http://queueing-monitor:8014
+    depends_on:
+      - risk-observables
+      - risk-multivector
+      - fingerprint
+      - drift
+      - surprise
+      - spectral
+      - sheaf-fusion
+      - tropical-routing
+      - conformal-calibration
+      - syndrome-decoder
+      - audit-ledger
+      - policy-manifold
+      - queueing-monitor
+
+  # ===========================================================================
+  # Frontend
+  # ===========================================================================
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    ports:
+      - "3000:3000"
+    environment:
+      - VITE_API_URL=http://localhost:8000
+    depends_on:
+      - orchestrator
+
+volumes:
+  pgdata:
+  natsdata:

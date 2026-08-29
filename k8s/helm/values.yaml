@@ -1,0 +1,133 @@
+replicaCount: 1
+
+image:
+  repository: controlplane-manifold
+  pullPolicy: IfNotPresent
+  tag: "1.0.0"
+
+services:
+  orchestrator:
+    port: 8000
+    replicas: 2
+    resources:
+      requests: { cpu: 500m, memory: 512Mi }
+      limits: { cpu: 1000m, memory: 1Gi }
+
+  risk-observables:
+    port: 8001
+    replicas: 2
+    resources:
+      requests: { cpu: 250m, memory: 256Mi }
+      limits: { cpu: 500m, memory: 512Mi }
+
+  risk-multivector:
+    port: 8002
+    replicas: 2
+    resources:
+      requests: { cpu: 250m, memory: 256Mi }
+      limits: { cpu: 500m, memory: 512Mi }
+
+  fingerprint:
+    port: 8003
+    replicas: 2
+    resources:
+      requests: { cpu: 500m, memory: 512Mi }
+      limits: { cpu: 1000m, memory: 1Gi }
+
+  drift:
+    port: 8004
+    replicas: 1
+    resources:
+      requests: { cpu: 500m, memory: 1Gi }
+      limits: { cpu: 1000m, memory: 2Gi }
+
+  surprise:
+    port: 8005
+    replicas: 1
+    resources:
+      requests: { cpu: 250m, memory: 256Mi }
+
+  spectral:
+    port: 8006
+    replicas: 1
+    resources:
+      requests: { cpu: 250m, memory: 256Mi }
+
+  sheaf-fusion:
+    port: 8007
+    replicas: 1
+    resources:
+      requests: { cpu: 250m, memory: 256Mi }
+
+  portability-adapters:
+    port: 8008
+    replicas: 1
+
+  tropical-routing:
+    port: 8009
+    replicas: 2
+    resources:
+      requests: { cpu: 250m, memory: 256Mi }
+
+  conformal-calibration:
+    port: 8010
+    replicas: 1
+
+  game-theory-patcher:
+    port: 8011
+    replicas: 1
+
+  syndrome-decoder:
+    port: 8012
+    replicas: 1
+
+  thermo-accounting:
+    port: 8013
+    replicas: 1
+
+  queueing-monitor:
+    port: 8014
+    replicas: 1
+
+  audit-ledger:
+    port: 8015
+    replicas: 2
+    resources:
+      requests: { cpu: 500m, memory: 512Mi }
+      limits: { cpu: 1000m, memory: 1Gi }
+
+  policy-manifold:
+    port: 8016
+    replicas: 1
+
+postgresql:
+  enabled: true
+  auth:
+    postgresPassword: controlplane_secret
+    database: controlplane
+  primary:
+    persistence:
+      size: 50Gi
+
+redis:
+  enabled: true
+  architecture: standalone
+  auth:
+    enabled: false
+
+ingress:
+  enabled: true
+  className: nginx
+  annotations:
+    nginx.ingress.kubernetes.io/proxy-body-size: "10m"
+  hosts:
+    - host: controlplane.local
+      paths:
+        - path: /
+          pathType: Prefix
+
+autoscaling:
+  enabled: true
+  minReplicas: 1
+  maxReplicas: 10
+  targetCPUUtilizationPercentage: 70
