@@ -14,8 +14,10 @@ Blueprint: Section 14
 """
 
 from __future__ import annotations
+
 import math
 import time
+
 from fastapi import FastAPI
 from pydantic import BaseModel
 

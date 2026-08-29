@@ -19,6 +19,7 @@ Whitepaper: Worked Example (Section 5.4), Table 3 Tier C
 
 import asyncio
 import json
+
 import httpx
 
 ORCHESTRATOR = "http://localhost:8000"
@@ -63,24 +64,24 @@ async def run():
 
     print(f"\n  Routing Action:  {result['routing_action'].upper()}")
     print(f"  Processing Time: {result['processing_time_ms']:.1f}ms")
-    print(f"\n  Fused Signal z_t:")
+    print("\n  Fused Signal z_t:")
     for k, v in result["fused_signal"].items():
         print(f"    {k:>15} = {v}")
-    print(f"\n  Routing Scores φ_a(z):")
+    print("\n  Routing Scores φ_a(z):")
     for action, score in sorted(result["routing_scores"].items(), key=lambda x: -x[1]):
         marker = " ← WINNER" if action == result["routing_action"] else ""
         print(f"    {action:>10}: {score:+.4f}{marker}")
 
     # Risk observable details
     obs = result.get("risk_observables", {})
-    print(f"\n  Risk Observables:")
+    print("\n  Risk Observables:")
     print(f"    p_t = {obs.get('p_t', 'N/A')} (ŷ_t={obs.get('y_hat', 'N/A')}, q_t={obs.get('q_t', 'N/A')})")
     print(f"    r_t = {obs.get('r_t', 'N/A')} (b={obs.get('b_t', 'N/A')}, s={obs.get('s_t', 'N/A')}, ℓ_PII={obs.get('l_pii_t', 'N/A')}, ℓ_MI={obs.get('l_mi_t', 'N/A')})")
 
     # Multivector details
     mv = result.get("risk_multivector", {})
     if mv:
-        print(f"\n  Risk Multivector R_t ∈ Cl(3,0):")
+        print("\n  Risk Multivector R_t ∈ Cl(3,0):")
         print(f"    e₁={mv.get('e1', 0):.4f}  e₂={mv.get('e2', 0):.4f}  e₃={mv.get('e3', 0):.4f}")
         print(f"    e₁₂={mv.get('e12', 0):.4f}  e₁₃={mv.get('e13', 0):.4f}  e₂₃={mv.get('e23', 0):.4f}")
         print(f"    e₁₂₃={mv.get('e123', 0):.4f}  ∧novelty={mv.get('wedge_novelty', 0):.4f}")
@@ -88,7 +89,7 @@ async def run():
     # Syndrome results
     syn = result.get("syndrome_result")
     if syn:
-        print(f"\n  Syndrome Decode (Eq. 40-41):")
+        print("\n  Syndrome Decode (Eq. 40-41):")
         print(f"    Inconsistencies: {syn.get('num_inconsistencies', 0)}")
         print(f"    Correctable: {syn.get('correctable', 'N/A')}")
         for a in syn.get("flagged_assertions", []):
@@ -99,7 +100,7 @@ async def run():
     # Verify: this should be BLOCK or ESCALATE
     assert result["routing_action"] in ("block", "escalate"), \
         f"Expected BLOCK/ESCALATE, got {result['routing_action']}"
-    print(f"\n  ✓ SCENARIO 2 PASSED — Dangerous response correctly BLOCKED")
+    print("\n  ✓ SCENARIO 2 PASSED — Dangerous response correctly BLOCKED")
     print("=" * 60)
 
     return result

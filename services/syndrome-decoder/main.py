@@ -17,8 +17,9 @@ Blueprint: Section 12
 """
 
 from __future__ import annotations
-import numpy as np
+
 import networkx as nx
+import numpy as np
 from fastapi import FastAPI
 from pydantic import BaseModel, Field
 

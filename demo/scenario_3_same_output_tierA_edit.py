@@ -15,6 +15,7 @@ Whitepaper: Table 3 (tier-specific α), Section 14.1
 
 import asyncio
 import json
+
 import httpx
 
 ORCHESTRATOR = "http://localhost:8000"
@@ -57,33 +58,33 @@ async def run():
 
     print(f"\n  Routing Action:  {result['routing_action'].upper()}")
     print(f"  Processing Time: {result['processing_time_ms']:.1f}ms")
-    print(f"\n  Fused Signal z_t:")
+    print("\n  Fused Signal z_t:")
     for k, v in result["fused_signal"].items():
         print(f"    {k:>15} = {v}")
-    print(f"\n  Routing Scores φ_a(z):")
+    print("\n  Routing Scores φ_a(z):")
     for action, score in sorted(result["routing_scores"].items(), key=lambda x: -x[1]):
         marker = " ← WINNER" if action == result["routing_action"] else ""
         print(f"    {action:>10}: {score:+.4f}{marker}")
 
     obs = result.get("risk_observables", {})
-    print(f"\n  Risk Observables:")
+    print("\n  Risk Observables:")
     print(f"    p_t = {obs.get('p_t', 'N/A')} — moderate performance risk")
     print(f"    r_t = {obs.get('r_t', 'N/A')} — no safety/bias/PII issues")
-    print(f"    Key: hedging language ('I think', 'approximately') detected")
+    print("    Key: hedging language ('I think', 'approximately') detected")
 
     syn = result.get("syndrome_result")
     if syn:
-        print(f"\n  Syndrome Decode (Eq. 40-41):")
+        print("\n  Syndrome Decode (Eq. 40-41):")
         print(f"    Correctable: {syn.get('correctable', 'N/A')}")
         print(f"    Error set size: {syn.get('error_set_size', 'N/A')}")
-        print(f"    → Syndrome localizes specific facts to correct")
+        print("    → Syndrome localizes specific facts to correct")
 
-    print(f"\n  Tier A (US-generic):")
-    print(f"    α_A = 0.10 (looser threshold — Table 3)")
-    print(f"    This response is editable, not block-worthy")
-    print(f"    Same content under Tier C/EU would route to BLOCK or ESCALATE")
+    print("\n  Tier A (US-generic):")
+    print("    α_A = 0.10 (looser threshold — Table 3)")
+    print("    This response is editable, not block-worthy")
+    print("    Same content under Tier C/EU would route to BLOCK or ESCALATE")
 
-    print(f"\n  ✓ SCENARIO 3 — Demonstrates tier-aware routing differentiation")
+    print("\n  ✓ SCENARIO 3 — Demonstrates tier-aware routing differentiation")
     print("=" * 60)
 
     return result

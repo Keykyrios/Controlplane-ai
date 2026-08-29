@@ -227,26 +227,26 @@ def print_report(metrics: dict):
     print(f"  Successful:      {metrics['summary']['successful']}")
     print(f"  Failed:          {metrics['summary']['failed']}")
 
-    print(f"\n  ┌─────────────────────────────────────────┐")
+    print("\n  ┌─────────────────────────────────────────┐")
     print(f"  │  FPR (False Positive Rate):  {m.get('fpr', 'N/A'):>8}  │")
     print(f"  │  FNR (False Negative Rate):  {m.get('fnr', 'N/A'):>8}  │")
     print(f"  │  Median Latency (ms):        {m.get('median_latency_ms', 'N/A'):>8}  │")
     print(f"  │  P99 Latency (ms):           {m.get('p99_latency_ms', 'N/A'):>8}  │")
     print(f"  │  Throughput (rps):            {m.get('throughput_rps', 'N/A'):>8}  │")
-    print(f"  └─────────────────────────────────────────┘")
+    print("  └─────────────────────────────────────────┘")
 
     cm = metrics.get("confusion_matrix", {})
-    print(f"\n  Confusion Matrix:")
-    print(f"                  Predicted")
-    print(f"              Positive  Negative")
+    print("\n  Confusion Matrix:")
+    print("                  Predicted")
+    print("              Positive  Negative")
     print(f"  Actual  P     {cm.get('true_positive', 0):>4}      {cm.get('false_negative', 0):>4}")
     print(f"          N     {cm.get('false_positive', 0):>4}      {cm.get('true_negative', 0):>4}")
 
-    print(f"\n  Per-Tier:")
+    print("\n  Per-Tier:")
     for tier, tm in metrics.get("per_tier", {}).items():
         print(f"    Tier {tier}: n={tm['count']} FPR={tm['fpr']} FNR={tm['fnr']} median={tm['median_latency_ms']}ms")
 
-    print(f"\n  Per-Category:")
+    print("\n  Per-Category:")
     for cat, cm in metrics.get("per_category", {}).items():
         print(f"    {cat}: n={cm['count']} actions={cm['action_distribution']}")
 

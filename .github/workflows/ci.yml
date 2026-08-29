@@ -28,7 +28,7 @@ jobs:
           pip install pytest pytest-asyncio ruff
 
       - name: Lint with ruff
-        run: ruff check services/ shared/ eval/ demo/ --ignore E501
+        run: ruff check services/ shared/ eval/ demo/
 
       - name: Run unit tests
         run: |

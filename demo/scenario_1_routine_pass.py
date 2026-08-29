@@ -15,6 +15,7 @@ Whitepaper: Section 20 (Algorithm 1), Table 3
 
 import asyncio
 import json
+
 import httpx
 
 ORCHESTRATOR = "http://localhost:8000"
@@ -56,10 +57,10 @@ async def run():
 
     print(f"\n  Routing Action:  {result['routing_action'].upper()}")
     print(f"  Processing Time: {result['processing_time_ms']:.1f}ms")
-    print(f"\n  Fused Signal z_t:")
+    print("\n  Fused Signal z_t:")
     for k, v in result["fused_signal"].items():
         print(f"    {k:>15} = {v}")
-    print(f"\n  Routing Scores φ_a(z):")
+    print("\n  Routing Scores φ_a(z):")
     for action, score in sorted(result["routing_scores"].items(), key=lambda x: -x[1]):
         marker = " ← WINNER" if action == result["routing_action"] else ""
         print(f"    {action:>10}: {score:+.4f}{marker}")

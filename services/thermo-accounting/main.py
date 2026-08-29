@@ -15,7 +15,9 @@ Blueprint: Section 13
 """
 
 from __future__ import annotations
+
 import math
+
 from fastapi import FastAPI
 from pydantic import BaseModel
 
