@@ -148,7 +148,7 @@ cd frontend && npm install && cd ..
 # Launch all 17 services + dashboard
 python start.py
 
-# Open dashboard at http://localhost:5173
+# Open dashboard at http://localhost:5183 (or http://localhost:5173)
 # Run demo scenarios:
 python demo/scenario_1_routine_pass.py
 python demo/scenario_2_confident_wrong_biased_tierC_block.py

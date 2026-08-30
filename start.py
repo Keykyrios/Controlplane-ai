@@ -150,11 +150,12 @@ def main():
         if fe_proc:
             processes.append(("frontend", fe_proc))
             time.sleep(2)
-            print(f"  [OK] Frontend:      http://localhost:5173")
+            print(f"  [OK] Frontend:      http://localhost:5183 (or http://localhost:5173)")
         print()
 
     print("  +--------------------------------------------------+")
-    print("  |  All systems go. Open http://localhost:5173      |")
+    print("  |  All systems go. Open http://localhost:5183      |")
+    print("  |  (or http://localhost:5173)                      |")
     print("  |  Press Ctrl+C to stop all services.              |")
     print("  +--------------------------------------------------+")
     print()

@@ -295,7 +295,7 @@ cd frontend && npm install && cd ..
 python start.py
 ```
 
-This launches all 17 microservices (ports 8000–8016) and the frontend at **http://localhost:5173**.
+This launches all 17 microservices (ports 8000–8016) and the frontend at **http://localhost:5183** (or **http://localhost:5173**).
 Press `Ctrl+C` to stop everything.
 
 ### Run Demo Scenarios
