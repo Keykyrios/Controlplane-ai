@@ -1,6 +1,6 @@
 <div align="center">
 
-### ***"AI can hallucinate. Math cannot."***
+### ***"AI can hallucinate. Mathematics cannot."***
 
 </div>
 
