@@ -25,7 +25,12 @@ from collections import OrderedDict
 from typing import Optional
 
 import numpy as np
-from cryptography.hazmat.primitives.asymmetric.mlkem import MLKEM768PrivateKey
+try:
+    from cryptography.hazmat.primitives.asymmetric.mlkem import MLKEM768PrivateKey
+    _HAS_MLKEM = True
+except ImportError:
+    _HAS_MLKEM = False
+    print("[AuditLedger] WARNING: ML-KEM not available, using X25519-only encryption")
 from cryptography.hazmat.primitives.asymmetric.x25519 import X25519PrivateKey
 from cryptography.hazmat.primitives.ciphers.aead import AESGCM
 from cryptography.hazmat.primitives.hashes import SHA256

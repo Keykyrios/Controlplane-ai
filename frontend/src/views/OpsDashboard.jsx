@@ -51,6 +51,145 @@ const SCENARIOS = [
   },
 ];
 
+/* ─── Radar Chart: 7-axis spider for fused signal vector z_t ─── */
+function RadarChart({ signal }) {
+  const axes = [
+    { key: 'p_t', label: 'P_T', max: 1 },
+    { key: 'c_t', label: 'C_T', max: 1 },
+    { key: 'r_t', label: 'R_T', max: 1 },
+    { key: 'delta_t', label: 'Δ_T', max: 1 },
+    { key: 'surprise_t', label: 'SURP', max: 2 },
+    { key: 'kappa_v_t', label: 'κ(V)', max: 10 },
+    { key: 'discord_t', label: 'DISC', max: 5 },
+  ];
+  const cx = 130, cy = 120, R = 90;
+  const n = axes.length;
+  const angleStep = (2 * Math.PI) / n;
+
+  const pointAt = (i, frac) => {
+    const angle = -Math.PI / 2 + i * angleStep;
+    return [cx + R * frac * Math.cos(angle), cy + R * frac * Math.sin(angle)];
+  };
+
+  // Build concentric rings
+  const rings = [0.25, 0.5, 0.75, 1.0];
+  const ringPaths = rings.map(frac => {
+    const pts = axes.map((_, i) => pointAt(i, frac));
+    return pts.map((p, i) => `${i === 0 ? 'M' : 'L'}${p[0].toFixed(1)},${p[1].toFixed(1)}`).join(' ') + ' Z';
+  });
+
+  // Build data polygon
+  const dataPoints = axes.map((a, i) => {
+    const raw = signal[a.key] ?? 0;
+    const frac = Math.min(1, Math.max(0, raw / a.max));
+    return pointAt(i, frac);
+  });
+  const dataPath = dataPoints.map((p, i) => `${i === 0 ? 'M' : 'L'}${p[0].toFixed(1)},${p[1].toFixed(1)}`).join(' ') + ' Z';
+
+  return (
+    <svg width="260" height="240" viewBox="0 0 260 240" style={{ display: 'block', margin: '0 auto' }}>
+      {/* Concentric rings */}
+      {ringPaths.map((d, i) => (
+        <path key={i} d={d} fill="none" stroke="rgba(245,243,239,0.08)" strokeWidth={0.5} />
+      ))}
+      {/* Spokes */}
+      {axes.map((_, i) => {
+        const [ex, ey] = pointAt(i, 1);
+        return <line key={i} x1={cx} y1={cy} x2={ex} y2={ey} stroke="rgba(245,243,239,0.06)" strokeWidth={0.5} />;
+      })}
+      {/* Data fill */}
+      <path d={dataPath} fill="rgba(255,170,50,0.15)" stroke="rgba(255,170,50,0.8)" strokeWidth={1.5} />
+      {/* Data dots + labels */}
+      {dataPoints.map((p, i) => (
+        <g key={i}>
+          <circle cx={p[0]} cy={p[1]} r={2.5} fill="#ffaa32" />
+          {(() => {
+            const [lx, ly] = pointAt(i, 1.18);
+            return (
+              <text x={lx} y={ly} textAnchor="middle" dominantBaseline="central"
+                style={{ fontFamily: 'var(--font-mono)', fontSize: 8, fill: 'rgba(245,243,239,0.5)' }}>
+                {axes[i].label}
+              </text>
+            );
+          })()}
+        </g>
+      ))}
+    </svg>
+  );
+}
+
+/* ─── Bar Chart: Tropical routing scores ─── */
+function RoutingBarChart({ scores, winner }) {
+  const entries = Object.entries(scores || {}).sort((a, b) => b[1] - a[1]);
+  if (entries.length === 0) return <span style={{ fontFamily: 'var(--font-mono)', fontSize: 11, color: 'var(--color-muted)' }}>No scores</span>;
+
+  const maxAbs = Math.max(...entries.map(([, v]) => Math.abs(v)), 1);
+  const barH = 28, gap = 6, pad = 70;
+  const svgW = 320, chartW = svgW - pad - 20;
+  const svgH = entries.length * (barH + gap) + 10;
+
+  return (
+    <svg width={svgW} height={svgH} viewBox={`0 0 ${svgW} ${svgH}`} style={{ display: 'block', margin: '0 auto' }}>
+      {entries.map(([act, score], i) => {
+        const isWinner = act === winner;
+        const color = act === 'block' ? '#f06060' : act === 'pass' ? '#4ecb71' : '#ffaa32';
+        const barW = Math.max(2, (Math.abs(score) / maxAbs) * chartW * 0.8);
+        const y = i * (barH + gap) + 5;
+        return (
+          <g key={act}>
+            <text x={pad - 8} y={y + barH / 2} textAnchor="end" dominantBaseline="central"
+              style={{ fontFamily: 'var(--font-mono)', fontSize: 10, fill: isWinner ? color : 'rgba(245,243,239,0.4)', fontWeight: isWinner ? 600 : 400, textTransform: 'uppercase' }}>
+              {act}
+            </text>
+            <rect x={pad} y={y + 4} width={barW} height={barH - 8} rx={2}
+              fill={isWinner ? color : 'rgba(245,243,239,0.1)'}
+              style={{ transition: 'width 0.4s ease' }} />
+            <text x={pad + barW + 8} y={y + barH / 2} dominantBaseline="central"
+              style={{ fontFamily: 'var(--font-mono)', fontSize: 11, fill: 'rgba(245,243,239,0.7)', fontVariantNumeric: 'tabular-nums' }}>
+              {score?.toFixed(2)}
+            </text>
+          </g>
+        );
+      })}
+    </svg>
+  );
+}
+
+/* ─── Signal Composition: stacked horizontal bar ─── */
+function SignalComposition({ signal }) {
+  const components = [
+    { key: 'p_t', label: 'Perf', color: '#ffaa32', max: 1 },
+    { key: 'c_t', label: 'Cost', color: '#5b9ef5', max: 1 },
+    { key: 'r_t', label: 'Resp', color: '#f06060', max: 1 },
+    { key: 'delta_t', label: 'Drift', color: '#a78bfa', max: 1 },
+    { key: 'surprise_t', label: 'Surprise', color: '#f472b6', max: 2 },
+    { key: 'discord_t', label: 'Discord', color: '#34d399', max: 5 },
+  ];
+
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+      {components.map(c => {
+        const raw = signal[c.key] ?? 0;
+        const pct = Math.min(100, Math.max(0, (raw / c.max) * 100));
+        return (
+          <div key={c.key}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 2 }}>
+              <span style={{ fontFamily: 'var(--font-mono)', fontSize: 10, color: 'var(--color-muted)', textTransform: 'uppercase', letterSpacing: '0.04em' }}>{c.label}</span>
+              <span style={{ fontFamily: 'var(--font-mono)', fontSize: 10, color: 'var(--color-fg)', fontVariantNumeric: 'tabular-nums' }}>{raw.toFixed(4)}</span>
+            </div>
+            <div style={{ height: 6, background: 'rgba(245,243,239,0.06)', borderRadius: 3 }}>
+              <div style={{
+                height: '100%', width: `${pct}%`, background: c.color, borderRadius: 3,
+                transition: 'width 0.5s ease',
+              }} />
+            </div>
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
 export default function OpsDashboard() {
   const [result, setResult] = useState(() => {
     try {
@@ -200,6 +339,21 @@ export default function OpsDashboard() {
       {/* Chart pair: only shows with data */}
       {result && (
         <div className="chart-pair" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 0 }}>
+          {/* Radar Chart: Fused Signal Vector z_t */}
+          <Panel title="Fused Signal Vector z_t">
+            <RadarChart signal={signal} />
+          </Panel>
+
+          {/* Bar Chart: Tropical Routing Scores */}
+          <Panel title="Tropical Routing Scores">
+            <RoutingBarChart scores={result.routing_scores} winner={result.routing_action} />
+          </Panel>
+        </div>
+      )}
+
+      {/* Risk Multivector + Routing detail below charts */}
+      {result && (
+        <div className="chart-pair" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 0 }}>
           {/* Risk Multivector */}
           <Panel title="Risk Multivector Cl(3,0)">
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 0 }}>
@@ -223,33 +377,9 @@ export default function OpsDashboard() {
             </div>
           </Panel>
 
-          {/* Tropical Routing */}
-          <Panel title="Tropical Routing Scores">
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 0 }}>
-              {Object.entries(result.routing_scores || {}).sort((a, b) => b[1] - a[1]).map(([act, score]) => {
-                const isWinner = act === result.routing_action;
-                const barW = Math.max(0, Math.min(100, (score + 5) * 10));
-                const color = act === 'block' ? 'var(--color-critical)' : act === 'pass' ? 'var(--color-success)' : 'var(--color-warning)';
-                return (
-                  <div key={act} style={{
-                    display: 'grid', gridTemplateColumns: '64px 1fr 56px', gap: 12,
-                    alignItems: 'center', padding: '8px 0',
-                    borderBottom: '1px solid var(--color-border)',
-                  }}>
-                    <span style={{
-                      fontFamily: 'var(--font-mono)', fontSize: 11, textTransform: 'uppercase',
-                      color: isWinner ? color : 'var(--color-muted)', fontWeight: isWinner ? 500 : 400,
-                    }}>{act}</span>
-                    <div style={{ height: 3, background: 'rgba(245,243,239,0.06)' }}>
-                      <div style={{ height: '100%', width: `${barW}%`, background: color }} />
-                    </div>
-                    <span style={{ fontFamily: 'var(--font-mono)', fontSize: 12, fontVariantNumeric: 'tabular-nums', color: 'var(--color-fg)', textAlign: 'right' }}>
-                      {score?.toFixed(2)}
-                    </span>
-                  </div>
-                );
-              })}
-            </div>
+          {/* Signal History Sparkline */}
+          <Panel title="Signal Composition">
+            <SignalComposition signal={signal} />
           </Panel>
         </div>
       )}
