@@ -21,6 +21,7 @@ from typing import Optional
 
 import numpy as np
 from fastapi import FastAPI
+from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field
 
 # ---------------------------------------------------------------------------
@@ -34,6 +35,14 @@ app = FastAPI(
     title="ControlPlane Manifold — Risk Multivector",
     description="Section 5.2-5.4: Geometric algebra lift, interaction terms, wedge novelty",
     version="1.0.0",
+)
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
 )
 
 

@@ -24,12 +24,21 @@ from typing import Optional
 
 import numpy as np
 from fastapi import FastAPI
+from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field
 
 app = FastAPI(
     title="ControlPlane Manifold — Non-Hermitian Spectral Early Warning",
     description="Section 10: Eq. 20-23 — spectral condition number κ(V_t)",
     version="1.0.0",
+)
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
 )
 
 # ---------------------------------------------------------------------------

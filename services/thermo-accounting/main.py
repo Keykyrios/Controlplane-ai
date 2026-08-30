@@ -19,12 +19,21 @@ from __future__ import annotations
 import math
 
 from fastapi import FastAPI
+from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 
 app = FastAPI(
     title="ControlPlane Manifold — Thermodynamic Cost Accounting",
     description="Section 17: Eq. 42-43 — Landauer floor and information-theoretic bounds",
     version="1.0.0",
+)
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
 )
 
 K_B = 1.380649e-23  # Boltzmann constant (J/K)

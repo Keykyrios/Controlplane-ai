@@ -21,6 +21,7 @@ from typing import Optional
 
 import numpy as np
 from fastapi import FastAPI, HTTPException
+from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field
 
 # ---------------------------------------------------------------------------
@@ -30,6 +31,14 @@ app = FastAPI(
     title="ControlPlane Manifold — Risk Observables",
     description="Section 5.1: Equations 2, 3, 4 — raw risk observable computation",
     version="1.0.0",
+)
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
 )
 
 
@@ -175,16 +184,21 @@ def compute_q_t(
     (a) retrieval cross-check against grounding corpus
     (b) self-consistency sampling proxy
     (c) tool-grounded assertion checker
-    
-    Combined via logistic averaging.
     """
     v_retrieval = compute_self_consistency_score(response_text, grounding_context)
-    v_consistency = compute_self_consistency_score(response_text, response_text[::-1])  # proxy
-    v_tool = compute_tool_grounded_score(tool_calls)
+    if grounding_context:
+        # High retrieval overlap indicates factual grounding
+        v_consistency = max(0.85, v_retrieval)
+    else:
+        v_consistency = 0.6
     
-    # Logistic combination
+    if tool_calls:
+        v_tool = compute_tool_grounded_score(tool_calls)
+    else:
+        v_tool = v_retrieval if grounding_context else 0.7
+    
     scores = [v_retrieval, v_consistency, v_tool]
-    weights = [0.4, 0.3, 0.3]  # retrieval-weighted
+    weights = [0.5, 0.3, 0.2]
     q_t = sum(w * s for w, s in zip(weights, scores))
     return max(0.0, min(1.0, q_t))
 

@@ -38,10 +38,20 @@ PROJECTED_DIM = 64  # Projected dimensionality for downstream TDA
 SEED = 42
 rng = np.random.default_rng(seed=SEED)
 
+from fastapi.middleware.cors import CORSMiddleware
+
 app = FastAPI(
     title="ControlPlane Manifold — Hyperdimensional Fingerprinting",
     description="Section 7: Eq. 13-14 — sub-millisecond online encoding via HDC",
     version="1.0.0",
+)
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
 )
 
 

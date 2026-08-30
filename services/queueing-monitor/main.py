@@ -19,12 +19,21 @@ import math
 import time
 
 from fastapi import FastAPI
+from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 
 app = FastAPI(
     title="ControlPlane Manifold — Queueing Monitor",
     description="Section 18: Eq. 44-45 — M/M/1 and M/M/c latency budget",
     version="1.0.0",
+)
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
 )
 
 
