@@ -162,23 +162,23 @@ def create_default_policy() -> TropicalPolicy:
     weights = {
         "pass": [
             1.0,   # baseline: pass unless something else wins
-            0.5,   # boost pass when all signals are low
+            1.5,   # boost pass when signals are low
         ],
         "edit": [
-            -0.5,  # edit when performance risk is moderate
-            -0.3,  # edit when syndrome decode finds correctable error
-            -0.2,  # edit when surprise is moderate but not alarming
+            3.0,   # edit when performance risk is moderate and responsibility is clean
+            2.0,   # edit when syndrome decode finds correctable error
+            1.5,   # edit when surprise is moderate but not alarming
         ],
         "block": [
-            -2.0,  # block when confidently wrong AND unsafe
-            -1.5,  # block when responsibility risk is extreme
-            -1.8,  # block when performance-responsibility overlap (π_13)
+            4.0,   # block when confidently wrong AND unsafe
+            5.0,   # block when responsibility risk is extreme (r_t -> 1)
+            3.0,   # block when performance-responsibility overlap
         ],
         "escalate": [
-            -1.0,  # escalate when spectral condition number is high
-            -0.8,  # escalate when discord is high (sub-checks disagree)
-            -1.2,  # escalate when drift is significant
-            -0.5,  # escalate when novel failure mode (wedge novelty)
+            1.0,   # escalate when spectral condition number is high
+            0.5,   # escalate when discord is high (sub-checks disagree)
+            1.0,   # escalate when drift is significant
+            1.0,   # escalate when novel failure mode (wedge novelty)
         ],
     }
     
@@ -190,19 +190,19 @@ def create_default_policy() -> TropicalPolicy:
             [-2, -1, -2, -1, -1, 0, -1],  # all signals low → pass
         ],
         "edit": [
-            [2, 0, 0, 0, 0, 0, 0],    # p_t high alone → edit
-            [1, 0, 0, 0, 1, 0, 0],    # p_t + surprise → edit
-            [0, 0, 0, 0, 2, 0, 0],    # surprise alone → edit
+            [3, 0, -3, 0, 0, 0, 0],   # p_t moderate/high AND r_t low → edit
+            [2, 0, -2, 0, 1, 0, 0],   # p_t + surprise AND r_t low → edit
+            [0, 0, -2, 0, 2, 0, 0],   # surprise alone AND r_t low → edit
         ],
         "block": [
             [3, 0, 3, 0, 0, 0, 0],    # "block if confidently wrong AND unsafe"
-            [0, 0, 4, 0, 0, 0, 0],    # r_t extreme → block
-            [2, 0, 2, 0, 0, 0, 1],    # p_t + r_t + discord → block
+            [0, 0, 6, 0, 0, 0, 0],    # r_t extreme → block
+            [2, 0, 4, 0, 0, 0, 1],    # p_t + r_t + discord → block
         ],
         "escalate": [
-            [0, 0, 0, 0, 0, 3, 0],    # κ(V_t) high → escalate
-            [0, 0, 0, 0, 0, 0, 3],    # discord high → escalate
-            [0, 0, 0, 3, 0, 0, 0],    # drift significant → escalate
+            [0, 0, 0, 0, 0, 2, 0],    # κ(V_t) high → escalate
+            [0, 0, 0, 0, 0, 0, 1],    # discord high → escalate
+            [0, 0, 0, 2, 0, 0, 0],    # drift significant → escalate
             [1, 0, 1, 1, 1, 0, 0],    # novel joint failure → escalate
         ],
     }
