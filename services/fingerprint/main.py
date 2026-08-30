@@ -34,6 +34,7 @@ from pydantic import BaseModel, Field
 # Constants (Section 7)
 # ---------------------------------------------------------------------------
 D = 10_000  # Dimensionality of hypervectors
+PROJECTED_DIM = 64  # Projected dimensionality for downstream TDA
 SEED = 42
 rng = np.random.default_rng(seed=SEED)
 
@@ -143,13 +144,14 @@ class FingerprintRequest(BaseModel):
 
 
 class FingerprintResponse(BaseModel):
-    """Output: the fingerprint hash and metadata."""
+    """Output: the fingerprint hash, projected vector, and raw hex."""
     response_id: str
     fingerprint_hash: str  # SHA3-256 of the bipolar vector (for storage/comparison)
+    fingerprint_hex: str = ""  # Raw bipolar vector as hex (for surprise NCD)
+    fingerprint_vector: list[float] = Field(default_factory=list)  # 64-dim projected (for drift TDA)
     dimensionality: int = D
     num_tokens: int
     encoding_time_us: float  # Microseconds — must be << 1ms
-    fingerprint_bytes: Optional[bytes] = None  # Raw bytes if requested
 
 
 class SimilarityRequest(BaseModel):
@@ -172,6 +174,17 @@ class SimilarityResponse(BaseModel):
 # ---------------------------------------------------------------------------
 
 _fingerprint_cache: dict[str, np.ndarray] = {}
+
+# Stable random projection matrix (computed once)
+_projection_matrix: Optional[np.ndarray] = None
+
+def _get_projection_matrix() -> np.ndarray:
+    """Get or create the D→PROJECTED_DIM random projection matrix."""
+    global _projection_matrix
+    if _projection_matrix is None:
+        proj_rng = np.random.default_rng(seed=99)
+        _projection_matrix = proj_rng.standard_normal((D, PROJECTED_DIM)) / np.sqrt(PROJECTED_DIM)
+    return _projection_matrix
 
 
 # ---------------------------------------------------------------------------
@@ -206,12 +219,21 @@ async def encode_fingerprint(req: FingerprintRequest) -> FingerprintResponse:
     # Hash for storage (audit ledger stores hash, not raw content)
     fp_hash = hashlib.sha3_256(h_t.tobytes()).hexdigest()
     
+    # Raw hex for surprise NCD
+    fp_hex = h_t.tobytes().hex()
+    
+    # Random projection to 64-dim for drift TDA
+    proj_matrix = _get_projection_matrix()
+    fp_vector = (h_t.astype(np.float64) @ proj_matrix).tolist()
+    
     # Cache
     _fingerprint_cache[req.response_id] = h_t
     
     return FingerprintResponse(
         response_id=req.response_id,
         fingerprint_hash=fp_hash,
+        fingerprint_hex=fp_hex,
+        fingerprint_vector=fp_vector,
         dimensionality=D,
         num_tokens=len(tokens),
         encoding_time_us=round(elapsed_us, 2),
