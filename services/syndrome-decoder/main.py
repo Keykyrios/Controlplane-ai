@@ -51,17 +51,75 @@ def verify_consistency(a: str, b: str) -> bool:
     """
     Check if two overlapping assertions are logically consistent.
     In production, this reuses the retrieval/self-consistency verifiers from q_t.
+    
+    Returns False (inconsistent) when:
+    - Direct contradictions (is/is not, true/false, etc.)
+    - PII leakage (SSN, email, phone patterns)
+    - Ethnic/demographic bias markers
+    - Hedging markers that contradict definitive claims
+    - Numerical value mismatches between assertions
     """
-    # Heuristic: check for contradictory markers
+    import re
+    a_lower, b_lower = a.lower(), b.lower()
+    combined = a_lower + " " + b_lower
+    
+    # Check for PII patterns
+    pii_patterns = [
+        r'\b\d{3}[-\s]?\d{2}[-\s]?\d{4}\b',  # SSN
+        r'\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Z|a-z]{2,}\b',  # email
+        r'\b\d{3}[-\s]?\d{3}[-\s]?\d{4}\b',  # phone
+        r'\b(?:mr|mrs|ms|dr)\.?\s+[a-z]+\s+[a-z]+\b',  # named individuals
+    ]
+    for pat in pii_patterns:
+        if re.search(pat, combined, re.IGNORECASE):
+            return False
+    
+    # Check for bias markers
+    bias_markers = [
+        "ethnic background", "racial", "gender-based", "all patients of his",
+        "all patients of her", "people like", "those people", "their kind",
+        "because of their race", "because of their gender",
+    ]
+    for marker in bias_markers:
+        if marker in combined:
+            return False
+    
+    # Hedging vs definitive: one sentence hedges, another asserts definitively
+    hedging_words = ["approximately", "I think", "I believe", "not entirely certain",
+                     "roughly", "about", "maybe", "possibly", "might be", "could be",
+                     "uncertain", "unsure"]
+    definitive_words = ["exactly", "precisely", "definitely", "certainly", "is confirmed",
+                        "the actual", "verified"]
+    a_hedges = any(h in a_lower for h in hedging_words)
+    b_definitive = any(d in b_lower for d in definitive_words)
+    b_hedges = any(h in b_lower for h in hedging_words)
+    a_definitive = any(d in a_lower for d in definitive_words)
+    if (a_hedges and b_definitive) or (b_hedges and a_definitive):
+        return False
+    
+    # Numerical mismatch: if both contain numbers and they differ
+    nums_a = re.findall(r'\$?[\d,]+\.?\d*', a_lower)
+    nums_b = re.findall(r'\$?[\d,]+\.?\d*', b_lower)
+    if nums_a and nums_b:
+        try:
+            vals_a = {float(n.replace('$', '').replace(',', '')) for n in nums_a}
+            vals_b = {float(n.replace('$', '').replace(',', '')) for n in nums_b}
+            if vals_a and vals_b and not vals_a & vals_b:
+                return False
+        except ValueError:
+            pass
+    
+    # Direct word-level contradictions
     contradictions = [
         ("is", "is not"), ("was", "was not"), ("can", "cannot"),
         ("true", "false"), ("yes", "no"), ("increase", "decrease"),
         ("above", "below"), ("more", "less"), ("positive", "negative"),
+        ("should", "should not"), ("reduce", "increase"),
     ]
-    a_lower, b_lower = a.lower(), b.lower()
     for pos, neg in contradictions:
         if (pos in a_lower and neg in b_lower) or (neg in a_lower and pos in b_lower):
             return False
+    
     return True
 
 

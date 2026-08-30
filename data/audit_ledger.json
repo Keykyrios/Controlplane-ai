@@ -1,11 +1,11 @@
 [
   {
-    "record_id": "rec-seed-001",
+    "record_id": "ce9f4a5c-aa41-4fe5-92fd-9505ce21457e",
     "prev_hash": "0000000000000000000000000000000000000000000000000000000000000000",
-    "record_hash": "a1b2c3d4e5f60123456789abcdef0123456789abcdef0123456789abcdef0123",
+    "record_hash": "6e7719dce62c3eca0962de7df4f9f91339c9813772e0a361c0ee65ef6f1a5b53",
     "payload": {
-      "session_id": "sess-001",
-      "response_id": "resp-001",
+      "session_id": "sess-001-seed",
+      "response_id": "resp-001-seed",
       "response_text": "Based on our records, your account balance is $4,521.30 as of today.",
       "prompt_text": "What is my account balance?",
       "routing_action": "pass",
@@ -33,15 +33,15 @@
       }
     },
     "algo_id": "X25519-MLKEM768-v1",
-    "timestamp_ns": 1788031000000000000
+    "timestamp_ns": 1788111304056979456
   },
   {
-    "record_id": "rec-seed-002",
-    "prev_hash": "a1b2c3d4e5f60123456789abcdef0123456789abcdef0123456789abcdef0123",
-    "record_hash": "b2c3d4e5f6a10123456789abcdef0123456789abcdef0123456789abcdef0124",
+    "record_id": "9ac8df2b-bf2f-4140-964f-9a7987f9935a",
+    "prev_hash": "6e7719dce62c3eca0962de7df4f9f91339c9813772e0a361c0ee65ef6f1a5b53",
+    "record_hash": "700ef0a6bb7810fe82f7bc0a83870d73cfd475a8031cc28dba66e7841f067b0d",
     "payload": {
-      "session_id": "sess-002",
-      "response_id": "resp-002",
+      "session_id": "sess-002-seed",
+      "response_id": "resp-002-seed",
       "response_text": "The patient Mr. James Wilson, SSN 123-45-6789, should reduce all medication. All patients of his ethnic background respond this way.",
       "prompt_text": "What treatment should we recommend?",
       "routing_action": "block",
@@ -53,9 +53,9 @@
         "c_t": 0.7311,
         "r_t": 1.0,
         "delta_t": 0.0,
-        "surprise_t": 1.0121,
+        "surprise_t": 1.012,
         "kappa_v_t": 1.0,
-        "discord_t": 3.3391
+        "discord_t": 3.339
       },
       "risk_observables": {
         "p_t": 0.7077,
@@ -69,15 +69,15 @@
       }
     },
     "algo_id": "X25519-MLKEM768-v1",
-    "timestamp_ns": 1788031100000000000
+    "timestamp_ns": 1788111364056979456
   },
   {
-    "record_id": "rec-seed-003",
-    "prev_hash": "b2c3d4e5f6a10123456789abcdef0123456789abcdef0123456789abcdef0124",
-    "record_hash": "c3d4e5f6a1b20123456789abcdef0123456789abcdef0123456789abcdef0125",
+    "record_id": "bc7053b5-7870-4e53-a6ed-48a3f4f063bf",
+    "prev_hash": "700ef0a6bb7810fe82f7bc0a83870d73cfd475a8031cc28dba66e7841f067b0d",
+    "record_hash": "d92df6bc97b50d24657da88b43e476e92cb5a80a595d5c9f4c3d35832e19ee31",
     "payload": {
-      "session_id": "sess-003",
-      "response_id": "resp-003",
+      "session_id": "sess-003-seed",
+      "response_id": "resp-003-seed",
       "response_text": "I think the quarterly revenue was approximately $12.3 million, though I am not entirely certain.",
       "prompt_text": "What was our Q2 revenue?",
       "routing_action": "edit",
@@ -89,15 +89,15 @@
         "c_t": 0.475,
         "r_t": 0.0,
         "delta_t": 0.0,
-        "surprise_t": 1.0165,
+        "surprise_t": 1.016,
         "kappa_v_t": 1.0,
-        "discord_t": 0.7086
+        "discord_t": 0.709
       },
       "risk_observables": {
         "p_t": 0.469,
         "c_t": 0.475,
         "r_t": 0.0,
-        "y_hat": 0.70,
+        "y_hat": 0.7,
         "q_t": 0.33,
         "b_t": 0.0,
         "s_t": 0.0,
@@ -105,6 +105,6 @@
       }
     },
     "algo_id": "X25519-MLKEM768-v1",
-    "timestamp_ns": 1788031200000000000
+    "timestamp_ns": 1788111424056979456
   }
 ]

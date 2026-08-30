@@ -340,24 +340,24 @@ async def process_response(req: PipelineRequest) -> PipelineResponse:
         discord_t = sheaf_result.get("discord_t", 0.0)
         
         # =================================================================
-        # Step 6: Syndrome decode if performance verifier flags
+        # Step 6: Syndrome decode — always run for factual consistency
+        # Checks PII, bias, hedging, contradictions (Section 15)
         # =================================================================
         syndrome_result = None
-        if p_t > 0.5:  # Performance risk threshold
-            sentences = [
-                s.strip() for s in req.response_text.split(".")
-                if len(s.strip()) > 10
-            ]
-            if len(sentences) >= 2:
-                syn_resp = await safe_call(
-                    client, "POST", f"{SYNDROME_URL()}/syndrome/decode",
-                    json={"response_id": req.response_id, "assertions": sentences[:10]},
-                    layer_name="syndrome-decoder",
-                    default=None,
-                    degraded=degraded,
-                )
-                if syn_resp:
-                    syndrome_result = syn_resp
+        sentences = [
+            s.strip() for s in req.response_text.split(".")
+            if len(s.strip()) > 5
+        ]
+        if len(sentences) >= 1:
+            syn_resp = await safe_call(
+                client, "POST", f"{SYNDROME_URL()}/syndrome/decode",
+                json={"response_id": req.response_id, "assertions": sentences[:10]},
+                layer_name="syndrome-decoder",
+                default=None,
+                degraded=degraded,
+            )
+            if syn_resp:
+                syndrome_result = syn_resp
         
         # =================================================================
         # Step 7: Assemble z_t and route (Section 13)

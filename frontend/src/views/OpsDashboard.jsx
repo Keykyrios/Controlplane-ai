@@ -89,7 +89,14 @@ export default function OpsDashboard() {
     setProcessing(true);
     setActiveScenario(idx);
     const startTime = performance.now();
-    const resp = await processResponse(SCENARIOS[idx].payload);
+    // Generate unique IDs for each run so audit records accumulate
+    const runId = Math.random().toString(36).slice(2, 8);
+    const payload = {
+      ...SCENARIOS[idx].payload,
+      session_id: `sess-${idx + 1}-${runId}`,
+      response_id: `resp-${idx + 1}-${runId}`,
+    };
+    const resp = await processResponse(payload);
     const elapsed = performance.now() - startTime;
 
     if (resp) {
@@ -100,14 +107,17 @@ export default function OpsDashboard() {
 
       // Add to live history
       const entry = {
-        id: SCENARIOS[idx].payload.response_id,
-        session: SCENARIOS[idx].payload.session_id,
+        id: payload.response_id,
+        session: payload.session_id,
         action: resp.routing_action,
-        tier: SCENARIOS[idx].payload.tier,
+        tier: payload.tier,
         time: `${(resp.processing_time_ms || elapsed).toFixed(1)}ms`,
         ts: new Date().toLocaleTimeString(),
       };
-      setHistory(prev => [entry, ...prev.filter(h => h.id !== entry.id)].slice(0, 20));
+      setHistory(prev => [entry, ...prev].slice(0, 20));
+
+      // Reload audit records so Compliance + Reviewer pick them up
+      loadAuditHistory();
 
       // Add log entries from the real pipeline response
       const logs = [];
