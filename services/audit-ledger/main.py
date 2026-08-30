@@ -56,20 +56,43 @@ ALGO_ID = "X25519-MLKEM768-v1"
 # Section 19.2 — CRDT Hash-Linked Append Log
 # ---------------------------------------------------------------------------
 
+from pathlib import Path
+
+DATA_DIR = Path(__file__).resolve().parent.parent.parent / "data"
+LEDGER_FILE = DATA_DIR / "audit_ledger.json"
+
+
 class AuditLedger:
     """
-    Grow-only, hash-linked append log with CRDT merge semantics.
-    
-    Each record is hash-chained to its predecessor. Regional replicas
-    append locally during a partition and merge by hash-graph union
-    on reconnect (grow-only set semantics).
-    
-    Whitepaper: Section 19, citing Shapiro et al. [15]
+    Grow-only, hash-linked append log with CRDT merge semantics and disk persistence.
     """
     
     def __init__(self):
         self.records: OrderedDict[str, dict] = OrderedDict()
         self.latest_hash: str = GENESIS_HASH
+        self._load_from_disk()
+    
+    def _load_from_disk(self):
+        """Load persistent audit records from disk on startup."""
+        try:
+            if LEDGER_FILE.exists():
+                with open(LEDGER_FILE, "r", encoding="utf-8") as f:
+                    saved = json.load(f)
+                    for record in saved:
+                        rec_id = record["record_id"]
+                        self.records[rec_id] = record
+                        self.latest_hash = record["record_hash"]
+        except Exception as e:
+            print(f"[AuditLedger] Error loading disk ledger: {e}")
+    
+    def _save_to_disk(self):
+        """Persist audit records to disk."""
+        try:
+            DATA_DIR.mkdir(parents=True, exist_ok=True)
+            with open(LEDGER_FILE, "w", encoding="utf-8") as f:
+                json.dump(list(self.records.values()), f, indent=2, default=str)
+        except Exception as e:
+            print(f"[AuditLedger] Error saving ledger to disk: {e}")
     
     def append(self, payload: dict) -> dict:
         """Append a new record, hash-linked to predecessor."""
@@ -90,6 +113,7 @@ class AuditLedger:
         
         self.records[record_id] = record
         self.latest_hash = record_hash
+        self._save_to_disk()
         return record
     
     def verify_chain(self) -> tuple[bool, int]:

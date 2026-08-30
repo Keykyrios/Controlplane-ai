@@ -96,8 +96,40 @@ _policies: dict[str, PolicyConfig] = {
     ),
 }
 
+import json
+from pathlib import Path
+
+DATA_DIR = Path(__file__).resolve().parent.parent.parent / "data"
+POLICY_FILE = DATA_DIR / "policy_manifold.json"
+
 _pending_changes: dict[str, PolicyChange] = {}
 _governance_log: list[dict] = []
+
+def _load_policy_disk():
+    global _pending_changes, _governance_log
+    try:
+        if POLICY_FILE.exists():
+            with open(POLICY_FILE, "r", encoding="utf-8") as f:
+                saved = json.load(f)
+                for p in saved.get("pending", []):
+                    obj = PolicyChange(**p)
+                    _pending_changes[obj.change_id] = obj
+                _governance_log = saved.get("governance_log", [])
+    except Exception as e:
+        print(f"[PolicyManifold] Error loading disk state: {e}")
+
+def _save_policy_disk():
+    try:
+        DATA_DIR.mkdir(parents=True, exist_ok=True)
+        with open(POLICY_FILE, "w", encoding="utf-8") as f:
+            json.dump({
+                "pending": [c.model_dump() for c in _pending_changes.values()],
+                "governance_log": _governance_log,
+            }, f, indent=2)
+    except Exception as e:
+        print(f"[PolicyManifold] Error saving disk state: {e}")
+
+_load_policy_disk()
 
 
 @app.get("/health")
@@ -138,6 +170,7 @@ async def propose_change(change: PolicyChange):
         "jurisdiction": change.jurisdiction,
         "timestamp": time.time(),
     })
+    _save_policy_disk()
     
     return {"change_id": change.change_id, "status": "pending"}
 
@@ -188,6 +221,7 @@ async def approve_change(change_id: str, approver: str):
         "new_version": policy.version,
         "timestamp": time.time(),
     })
+    _save_policy_disk()
     
     return {"status": "approved", "new_version": policy.version}
 
