@@ -230,6 +230,7 @@ class RoutingRequest(BaseModel):
     discord_t: float = 0.0
     tier: str = "A"
     jurisdiction: str = "US-generic"
+    conformal_lambda: Optional[float] = None  # Calibrated threshold from conformal service
 
 
 class RoutingResponse(BaseModel):
@@ -279,6 +280,21 @@ async def route_response(req: RoutingRequest) -> RoutingResponse:
     
     policy = get_policy(req.tier, req.jurisdiction)
     action, scores = policy.route(z)
+    
+    # Conformal risk control override (Theorem 14.2)
+    # If the calibrated threshold λ̂ is provided, enforce it:
+    # any response with max risk signal > λ̂ must be blocked/escalated
+    # regardless of the tropical polynomial, to control false-negative rate ≤ α
+    conformal_override = False
+    if req.conformal_lambda is not None:
+        max_risk = max(req.p_t, req.c_t, req.r_t)
+        if max_risk > req.conformal_lambda and action in ("pass", "edit"):
+            # Override: escalate if moderate, block if severe
+            if max_risk > req.conformal_lambda * 1.5:
+                action = "block"
+            else:
+                action = "escalate"
+            conformal_override = True
     
     return RoutingResponse(
         response_id=req.response_id,

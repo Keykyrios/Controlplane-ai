@@ -508,10 +508,27 @@ async def compute_risk_observables(req: RiskObservablesRequest) -> RiskObservabl
     )
 
 
+class CoOccurrenceRequest(BaseModel):
+    """Request for co-occurrence interaction terms."""
+    p_t: float
+    c_t: float
+    r_t: float
+
+
 @app.post("/risk/cooccurrence")
-async def get_cooccurrence(p_t: float, c_t: float, r_t: float):
-    """Return current bivector interaction terms from the sliding window."""
-    interactions = _cooccurrence_tracker.update(p_t, c_t, r_t)
+async def get_cooccurrence(req: CoOccurrenceRequest):
+    """
+    Return bivector interaction terms π_ij from the sliding window.
+    
+    These feed directly into the Cl(3,0) multivector bivector components:
+      e12 = π_12 (performance × cost co-occurrence)
+      e13 = π_13 (performance × responsibility co-occurrence)
+      e23 = π_23 (cost × responsibility co-occurrence)
+      e123 = π_123 (triple co-occurrence)
+    
+    Whitepaper: Eq. 7
+    """
+    interactions = _cooccurrence_tracker.update(req.p_t, req.c_t, req.r_t)
     return interactions
 
 
