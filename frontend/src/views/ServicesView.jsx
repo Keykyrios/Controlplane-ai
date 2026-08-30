@@ -29,14 +29,28 @@ const SERVICES = [
 export default function ServicesView() {
   const [health, setHealth] = useState({});
 
-  useEffect(() => {
-    // Check health of each service
+  const checkHealth = () => {
     SERVICES.forEach(svc => {
+      const start = performance.now();
       fetch(`http://localhost:${svc.port}/health`)
-        .then(r => r.json())
-        .then(data => setHealth(prev => ({ ...prev, [svc.name]: { status: 'healthy', latency: Math.random() * 5 + 1 } })))
-        .catch(() => setHealth(prev => ({ ...prev, [svc.name]: { status: 'offline', latency: null } })));
+        .then(r => {
+          if (!r.ok) throw new Error('HTTP ' + r.status);
+          return r.json();
+        })
+        .then(() => {
+          const latency = performance.now() - start;
+          setHealth(prev => ({ ...prev, [svc.name]: { status: 'healthy', latency: Math.max(1.0, latency) } }));
+        })
+        .catch(() => {
+          setHealth(prev => ({ ...prev, [svc.name]: { status: 'offline', latency: null } }));
+        });
     });
+  };
+
+  useEffect(() => {
+    checkHealth();
+    const interval = setInterval(checkHealth, 5000);
+    return () => clearInterval(interval);
   }, []);
 
   const healthyCount = Object.values(health).filter(h => h.status === 'healthy').length;
@@ -57,6 +71,9 @@ export default function ServicesView() {
             </span>
           </div>
         </div>
+        <button className="btn-ghost" onClick={checkHealth} style={{ fontSize: 12 }}>
+          Refresh
+        </button>
       </div>
 
       {/* Summary strip */}
