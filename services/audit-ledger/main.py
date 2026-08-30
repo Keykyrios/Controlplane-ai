@@ -400,6 +400,8 @@ _fhe = PrivacyPreservingQueryEngine(_encryptor)
 class AuditWriteRequest(BaseModel):
     session_id: str
     response_id: str
+    response_text: Optional[str] = ""
+    prompt_text: Optional[str] = ""
     risk_observables: Optional[dict] = None
     risk_multivector: Optional[dict] = None
     fused_signal: Optional[dict] = None
@@ -438,6 +440,8 @@ async def write_audit_record(req: AuditWriteRequest):
     payload = {
         "session_id": req.session_id,
         "response_id": req.response_id,
+        "response_text": req.response_text,
+        "prompt_text": req.prompt_text,
         "risk_observables": req.risk_observables,
         "risk_multivector": req.risk_multivector,
         "fused_signal": req.fused_signal,

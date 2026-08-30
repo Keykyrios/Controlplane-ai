@@ -228,18 +228,18 @@ Every service receives **real upstream data** — no zeros, no empty strings, no
                                                └──────────────────┘
 ```
 
-### Post-Quantum Encryption (Real, Not Simulated)
+### Post-Quantum Encryption (Real-Time Hybrid PQC)
 
-Every audit record is encrypted with a **real hybrid post-quantum scheme**:
+Every audit record is encrypted in real time with a **production-grade hybrid post-quantum scheme**:
 
 ```
-1. ML-KEM-768 encapsulate()    → pq_shared_secret (32 bytes) + kem_ciphertext (1088 bytes)
-2. X25519 ephemeral ECDH       → classical_shared_secret (32 bytes)
-3. HKDF-SHA256(pq || classical) → aes_key (32 bytes)
-4. AES-256-GCM(aes_key, nonce)  → encrypted record (decryptable)
+Step 1: ML-KEM-768 encapsulate()    → pq_shared_secret (32 bytes) + kem_ciphertext (1088 bytes)
+Step 2: X25519 ephemeral ECDH       → classical_shared_secret (32 bytes)
+Step 3: HKDF-SHA256(pq ‖ classical) → aes_key (32 bytes)
+Step 4: AES-256-GCM(aes_key, nonce) → encrypted audit record payload
 ```
 
-The hybrid construction ensures security against both classical and quantum adversaries. Uses `cryptography>=47.0.0` (pyca/cryptography) — the industry-standard, audited Python crypto library with native ML-KEM-768 (FIPS 203) support.
+The hybrid construction (ML-KEM-768 lattice-based FIPS 203 + X25519 elliptic curve) ensures security against both classical and quantum adversaries. Implemented via `cryptography>=47.0.0` (`pyca/cryptography`) — the industry-standard, audited Python crypto library with native ML-KEM-768 support. All encrypted records are appended to the hash-linked CRDT audit ledger (`services/audit-ledger/main.py`) and remain fully queryable and decryptable by compliance officers.
 
 ---
 

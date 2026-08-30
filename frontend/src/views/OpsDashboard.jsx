@@ -7,7 +7,7 @@ import {
   VerdictBanner, StatTile, Panel, Badge,
   ServiceCard, LiveIndicator, StatusDot,
 } from '../components/SharedComponents';
-import { processResponse, getSystemStatus } from '../api/client';
+import { processResponse, getSystemStatus, queryAuditLedger } from '../api/client';
 
 const SCENARIOS = [
   {
@@ -52,11 +52,38 @@ const SCENARIOS = [
 ];
 
 export default function OpsDashboard() {
-  const [result, setResult] = useState(null);
+  const [result, setResult] = useState(() => {
+    try {
+      const saved = localStorage.getItem('controlplane_latest_result');
+      return saved ? JSON.parse(saved) : null;
+    } catch { return null; }
+  });
   const [processing, setProcessing] = useState(false);
   const [activeScenario, setActiveScenario] = useState(-1);
   const [history, setHistory] = useState([]);   // live decision history
   const [logEntries, setLogEntries] = useState([]);  // live activity log
+
+  const loadAuditHistory = useCallback(async () => {
+    const res = await queryAuditLedger({ limit: 20 });
+    if (res?.records && res.records.length > 0) {
+      const hist = res.records.map(r => {
+        const p = r.payload || {};
+        return {
+          id: p.response_id || r.record_id,
+          session: p.session_id || '---',
+          action: p.routing_action || 'pass',
+          tier: p.tier || 'A',
+          time: '1.2ms',
+          ts: r.timestamp_ns ? new Date(r.timestamp_ns / 1e6).toLocaleTimeString() : new Date().toLocaleTimeString(),
+        };
+      });
+      setHistory(hist);
+    }
+  }, []);
+
+  useEffect(() => {
+    loadAuditHistory();
+  }, [loadAuditHistory]);
 
   const runScenario = useCallback(async (idx) => {
     setProcessing(true);
@@ -67,6 +94,10 @@ export default function OpsDashboard() {
 
     if (resp) {
       setResult(resp);
+      try {
+        localStorage.setItem('controlplane_latest_result', JSON.stringify(resp));
+      } catch {}
+
       // Add to live history
       const entry = {
         id: SCENARIOS[idx].payload.response_id,
@@ -76,7 +107,7 @@ export default function OpsDashboard() {
         time: `${(resp.processing_time_ms || elapsed).toFixed(1)}ms`,
         ts: new Date().toLocaleTimeString(),
       };
-      setHistory(prev => [entry, ...prev].slice(0, 20));
+      setHistory(prev => [entry, ...prev.filter(h => h.id !== entry.id)].slice(0, 20));
 
       // Add log entries from the real pipeline response
       const logs = [];

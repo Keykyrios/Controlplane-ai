@@ -389,29 +389,30 @@ async def process_response(req: PipelineRequest) -> PipelineResponse:
         # =================================================================
         # Step 8: Write audit record with REAL AES-256-GCM encryption
         # =================================================================
-        asyncio.create_task(
-            safe_call(
-                httpx.AsyncClient(), "POST", f"{AUDIT_URL()}/audit/write",
-                json={
-                    "session_id": req.session_id,
-                    "response_id": req.response_id,
-                    "risk_observables": risk_obs_result,
-                    "risk_multivector": mv_result,
-                    "fused_signal": {
-                        "p_t": p_t, "c_t": c_t, "r_t": r_t,
-                        "delta_t": delta_t, "surprise_t": surprise_t,
-                        "kappa_v_t": kappa_v_t, "discord_t": discord_t,
-                    },
-                    "routing_action": routing_action,
-                    "fingerprint_hash": fp_hash,
-                    "tier": req.tier,
-                    "jurisdiction": req.jurisdiction,
+        audit_res = await safe_call(
+            client, "POST", f"{AUDIT_URL()}/audit/write",
+            json={
+                "session_id": req.session_id,
+                "response_id": req.response_id,
+                "response_text": req.response_text,
+                "prompt_text": req.prompt_text,
+                "risk_observables": risk_obs_result,
+                "risk_multivector": mv_result,
+                "fused_signal": {
+                    "p_t": p_t, "c_t": c_t, "r_t": r_t,
+                    "delta_t": delta_t, "surprise_t": surprise_t,
+                    "kappa_v_t": kappa_v_t, "discord_t": discord_t,
                 },
-                layer_name="audit",
-                default={},
-                degraded=[],
-            )
+                "routing_action": routing_action,
+                "fingerprint_hash": fp_hash,
+                "tier": req.tier,
+                "jurisdiction": req.jurisdiction,
+            },
+            layer_name="audit",
+            default={},
+            degraded=[],
         )
+        audit_record_hash = audit_res.get("hash", "")
         
         # =================================================================
         # Step 9: Return (latency guarantee L_fast applies here)
@@ -434,7 +435,7 @@ async def process_response(req: PipelineRequest) -> PipelineResponse:
             surprise_score=surprise_t,
             spectral_condition=kappa_v_t,
             discord_score=discord_t,
-            syndrome_result=syndrome_result,
+            audit_record_hash=audit_record_hash,
             processing_time_ms=round(processing_time, 2),
             degraded_layers=degraded,
         )

@@ -66,8 +66,8 @@ def start_service(name: str, port: int) -> subprocess.Popen:
          "--log-level", "warning"],
         cwd=str(service_dir),
         env=env,
-        stdout=subprocess.PIPE,
-        stderr=subprocess.PIPE,
+        stdout=subprocess.DEVNULL,
+        stderr=subprocess.DEVNULL,
     )
     return proc
 
@@ -82,8 +82,8 @@ def start_frontend() -> subprocess.Popen:
     proc = subprocess.Popen(
         ["npm", "run", "dev"],
         cwd=str(frontend_dir),
-        stdout=subprocess.PIPE,
-        stderr=subprocess.PIPE,
+        stdout=subprocess.DEVNULL,
+        stderr=subprocess.DEVNULL,
         shell=True,
     )
     return proc
@@ -94,12 +94,14 @@ def cleanup(signum=None, frame=None):
     print("\n\n  Shutting down all services...")
     for name, proc in processes:
         if proc and proc.poll() is None:
-            proc.terminate()
-    # Wait briefly, then force-kill
-    time.sleep(1)
-    for name, proc in processes:
-        if proc and proc.poll() is None:
-            proc.kill()
+            if sys.platform == "win32":
+                try:
+                    subprocess.run(["taskkill", "/F", "/T", "/PID", str(proc.pid)],
+                                   stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+                except Exception:
+                    proc.kill()
+            else:
+                proc.kill()
     print("  All services stopped.")
     sys.exit(0)
 
