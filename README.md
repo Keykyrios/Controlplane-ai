@@ -179,17 +179,110 @@ Seven signal layers computed **once** per response, shared across all tiers. Onl
 | `syndrome-decoder` | 8012 | $\hat{E}_t = \arg\min |E|$ s.t. $E$ explains $\vec\sigma_t$ | `services/syndrome-decoder/main.py` |
 | `thermo-accounting` | 8013 | $W_{\text{erase}} \ge k_B T \ln 2 \cdot b$, $\Delta S \ge -k_B I(M;S)$ | `services/thermo-accounting/main.py` |
 | `queueing-monitor` | 8014 | $L_{\text{fast}} = 1/(\mu_{\text{fast}} - \lambda)$ | `services/queueing-monitor/main.py` |
-| `audit-ledger` | 8015 | PQC (X25519+ML-KEM-768), CRDT, FHE | `services/audit-ledger/main.py` |
+| `audit-ledger` | 8015 | ML-KEM-768 + X25519 + HKDF → AES-256-GCM, CRDT hash chain | `services/audit-ledger/main.py` |
 | `policy-manifold` | 8016 | Per-tier, per-jurisdiction threshold governance | `services/policy-manifold/main.py` |
 | `portability-adapters` | 8008 | $F: \mathbf{Pipe} \to \mathbf{Risk}$, Yoneda lemma | `services/portability-adapters/main.py` |
 | `orchestrator` | 8000 | Algorithm 1 — full pipeline controller | `services/orchestrator/main.py` |
 
 ---
 
+## Pipeline Data Flow
+
+Every service receives **real upstream data** — no zeros, no empty strings, no placeholders.
+
+```
+                          ┌──────────────────┐
+   response_text ────────►│   Fingerprint    │──── fingerprint_hex ──────────────►┐
+                          │   (HDC d=10000)  │──── fingerprint_vector (64-dim) ──►│
+                          └──────────────────┘                                    │
+                                                                                  │
+                          ┌──────────────────┐                                    │
+   response + context ───►│ Risk Observables │──── p_t, c_t, r_t ───────────────►│
+                          └──────────────────┘                                    │
+                                   │                                              │
+                          ┌────────▼─────────┐                                    │
+                          │  Co-occurrence   │──── π_12, π_13, π_23, π_123 ─────►│
+                          │  (sliding window)│                                    │
+                          └──────────────────┘                                    │
+                                                                                  │
+              ┌───────────────────────────────────────────────────────────────────┘
+              │
+              │   ┌──────────────────────────────────────────────────────────┐
+              ├──►│  Drift         │ real fingerprint_vector → TDA → Δ_t    │
+              ├──►│  Surprise      │ real fingerprint_hex → NCD → S_t       │
+              ├──►│  Multivector   │ real π_ij → Cl(3,0) → R_t             │
+              ├──►│  Spectral      │ p_t,c_t,r_t → Jacobian → κ(V_t)       │
+              └──►│  Sheaf Fusion  │ checkpoint signals → Discord_t         │
+                  └──────────────────────────────────────────────────────────┘
+                                          │
+                  ┌──────────────────┐    │    ┌──────────────────┐
+                  │    Conformal     │────┼───►│ Tropical Routing │
+                  │  Calibration     │    │    │  φ_a(z) + λ̂      │
+                  │  (per-tier λ̂)   │    │    │  override        │
+                  └──────────────────┘    │    └────────┬─────────┘
+                                          │             │
+                  ┌──────────────────┐    │    ┌────────▼─────────┐
+                  │ Policy Manifold  │────┘    │   Audit Ledger   │
+                  │ (per-tier rules) │         │  ML-KEM-768 +    │
+                  └──────────────────┘         │  X25519 + AES-GCM│
+                                               └──────────────────┘
+```
+
+### Post-Quantum Encryption (Real, Not Simulated)
+
+Every audit record is encrypted with a **real hybrid post-quantum scheme**:
+
+```
+1. ML-KEM-768 encapsulate()    → pq_shared_secret (32 bytes) + kem_ciphertext (1088 bytes)
+2. X25519 ephemeral ECDH       → classical_shared_secret (32 bytes)
+3. HKDF-SHA256(pq || classical) → aes_key (32 bytes)
+4. AES-256-GCM(aes_key, nonce)  → encrypted record (decryptable)
+```
+
+The hybrid construction ensures security against both classical and quantum adversaries. Uses `cryptography>=47.0.0` (pyca/cryptography) — the industry-standard, audited Python crypto library with native ML-KEM-768 (FIPS 203) support.
+
+---
+
+## Project Structure
+
+```
+controlplane-manifold/
+├── services/
+│   ├── orchestrator/              # Algorithm 1 — pipeline controller
+│   ├── risk-observables/          # p_t, c_t, r_t + co-occurrence π_ij
+│   ├── risk-multivector/          # R_t ∈ Cl(3,0), wedge novelty
+│   ├── fingerprint/               # HDC encode, D=10000, 64-dim projection
+│   ├── drift/                     # W₂(D_t, D₀) persistent homology (H0+H1)
+│   ├── surprise/                  # NCD algorithmic surprise
+│   ├── spectral/                  # κ(V_t) exceptional-point detection
+│   ├── sheaf-fusion/              # Discord_t = x^T L_F x
+│   ├── tropical-routing/          # a* = argmax ϕ_a(z) + conformal override
+│   ├── conformal-calibration/     # E[L_{n+1}] ≤ α, per-tier λ̂
+│   ├── game-theory-patcher/       # Sprague-Grundy, Nim-sum
+│   ├── syndrome-decoder/          # Min-weight matching
+│   ├── thermo-accounting/         # Landauer bound, Maxwell demon
+│   ├── queueing-monitor/          # M/M/1, Erlang-C
+│   ├── audit-ledger/              # ML-KEM-768 + X25519 + AES-256-GCM + CRDT
+│   ├── policy-manifold/           # Per-tier governance
+│   └── portability-adapters/      # Yoneda argument
+├── shared/
+│   ├── contracts.py               # Pydantic schemas
+│   └── constants.py               # System-wide config
+├── frontend/                      # React + Vite dashboard
+│   └── src/
+│       ├── views/                 # 4 persona views
+│       ├── components/            # Shared components
+│       └── api/                   # API client
+├── eval/                          # Evaluation harness
+├── demo/                          # 3 demo scenarios
+└── start.py                       # One-command startup
+```
+---
+
 ## Quick Start
 
 ### Prerequisites
-- Python 3.12+ with `pip install fastapi uvicorn httpx numpy pydantic`
+- Python 3.12+ with `pip install fastapi uvicorn httpx numpy scipy cryptography pydantic`
 - Node.js 18+ (for the dashboard)
 
 ### One-Command Startup
@@ -216,66 +309,20 @@ python demo/scenario_3_same_output_tierA_edit.py
 
 Or use the dashboard directly — click any scenario in the **Ops Dashboard** to send it through all 17 services live.
 
-### Run Evaluation Harness
-
-```bash
-cd eval
-python synthetic_corpus_generator.py
-python run_eval.py
-```
-
 ---
 
 ## Frontend
 
-Three persona views:
+Four persona views:
 
 | View | URL | Persona |
 |---|---|---|
 | Ops Dashboard | `/ops` | MLOps — live risk monitoring, scenario runner |
-| Compliance | `/compliance` | Compliance officer — audit ledger, FHE queries, policy manifold |
+| Compliance | `/compliance` | Compliance officer — audit ledger, encrypted queries, policy manifold |
 | Reviewer Queue | `/review` | Frontline reviewer — escalation triage, override/confirm |
 | Services | `/services` | Infrastructure — all 17 services with health, ports, math references |
 
 Live dashboard: no hardcoded data. Everything populates from real backend responses.
-
----
-
-## Project Structure
-
-```
-controlplane-manifold/
-├── services/
-│   ├── orchestrator/              # Algorithm 1 — pipeline controller
-│   ├── risk-observables/          # p_t, c_t, r_t
-│   ├── risk-multivector/          # R_t ∈ Cl(3,0), wedge novelty
-│   ├── fingerprint/               # HDC encode, D=10000
-│   ├── drift/                     # W₂(D_t, D₀) persistent homology
-│   ├── surprise/                  # NCD algorithmic surprise
-│   ├── spectral/                  # κ(V_t) exceptional-point detection
-│   ├── sheaf-fusion/              # Discord_t = x^T L_F x
-│   ├── tropical-routing/          # a* = argmax ϕ_a(z)
-│   ├── conformal-calibration/     # E[L_{n+1}] ≤ α
-│   ├── game-theory-patcher/       # Sprague-Grundy, Nim-sum
-│   ├── syndrome-decoder/          # Min-weight matching
-│   ├── thermo-accounting/         # Landauer bound, Maxwell demon
-│   ├── queueing-monitor/          # M/M/1, Erlang-C
-│   ├── audit-ledger/              # PQC + CRDT + FHE
-│   ├── policy-manifold/           # Per-tier governance
-│   └── portability-adapters/      # Yoneda argument
-├── shared/
-│   ├── contracts.py               # Pydantic schemas
-│   └── constants.py               # System-wide config
-├── frontend/                      # React + Vite dashboard
-│   └── src/
-│       ├── views/                 # 4 persona views
-│       ├── components/            # Shared components
-│       └── api/                   # API client
-├── eval/                          # Evaluation harness
-├── demo/                          # 3 demo scenarios
-├── start.py                       # One-command startup
-└── docker-compose.yml             # Full stack orchestration
-```
 
 ---
 
