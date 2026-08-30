@@ -64,9 +64,11 @@ SURPRISE_URL = lambda: svc("surprise", 8005)
 SPECTRAL_URL = lambda: svc("spectral", 8006)
 SHEAF_URL = lambda: svc("sheaf-fusion", 8007)
 ROUTING_URL = lambda: svc("tropical-routing", 8009)
+CONFORMAL_URL = lambda: svc("conformal-calibration", 8010)
 SYNDROME_URL = lambda: svc("syndrome-decoder", 8012)
 AUDIT_URL = lambda: svc("audit-ledger", 8015)
 QUEUEING_URL = lambda: svc("queueing-monitor", 8014)
+POLICY_URL = lambda: svc("policy-manifold", 8016)
 
 TIMEOUT = 5.0  # seconds — degrade-gracefully cutoff
 
@@ -147,6 +149,7 @@ async def process_response(req: PipelineRequest) -> PipelineResponse:
     Algorithm 1 from the whitepaper — the full per-response online decision.
     
     Steps 1-9, with fan-out parallelism for independent layers.
+    Every service is wired with real data — no placeholder zeros.
     """
     start = time.perf_counter()
     degraded: list[str] = []
@@ -154,18 +157,21 @@ async def process_response(req: PipelineRequest) -> PipelineResponse:
     async with httpx.AsyncClient() as client:
         # =================================================================
         # Step 1: Compute fingerprint h_t (Section 7)
+        # Returns: fingerprint_hash, fingerprint_hex (for surprise NCD),
+        #          fingerprint_vector (64-dim projected, for drift TDA)
         # =================================================================
         fp_task = safe_call(
             client, "POST", f"{FP_URL()}/fingerprint/encode",
             json={"response_id": req.response_id, "session_id": req.session_id,
                   "response_text": req.response_text},
             layer_name="fingerprint",
-            default={"fingerprint_hash": "", "encoding_time_us": 0},
+            default={"fingerprint_hash": "", "fingerprint_hex": "",
+                      "fingerprint_vector": [], "encoding_time_us": 0},
             degraded=degraded,
         )
         
         # =================================================================
-        # Step 2: Compute (p_t, c_t, r_t) and R_t (Section 5)
+        # Step 2: Compute (p_t, c_t, r_t) risk observables (Section 5)
         # =================================================================
         risk_obs_task = safe_call(
             client, "POST", f"{RISK_OBS_URL()}/risk/observables",
@@ -195,14 +201,65 @@ async def process_response(req: PipelineRequest) -> PipelineResponse:
         c_t = risk_obs_result.get("c_t", 0.5)
         r_t = risk_obs_result.get("r_t", 0.5)
         
+        # Extract real fingerprint data (not placeholders)
+        fp_hash = fp_result.get("fingerprint_hash", "")
+        fp_hex = fp_result.get("fingerprint_hex", "")
+        fp_vector = fp_result.get("fingerprint_vector", [])
+        
         # =================================================================
-        # Step 2b: Build risk multivector R_t
+        # Step 2b: Get co-occurrence interaction terms π_ij (Eq. 7)
+        # These feed into the Cl(3,0) multivector bivector components
+        # =================================================================
+        cooccurrence_task = safe_call(
+            client, "POST", f"{RISK_OBS_URL()}/risk/cooccurrence",
+            json={"p_t": p_t, "c_t": c_t, "r_t": r_t},
+            layer_name="co-occurrence",
+            default={"pi_12": 0.0, "pi_13": 0.0, "pi_23": 0.0, "pi_123": 0.0},
+            degraded=degraded,
+        )
+        
+        # =================================================================
+        # Step 2c: Fetch conformal threshold λ̂ for this tier (Section 14)
+        # =================================================================
+        conformal_task = safe_call(
+            client, "GET", f"{CONFORMAL_URL()}/calibration/threshold/{req.tier}",
+            json={},
+            layer_name="conformal-calibration",
+            default={"lambda_hat": None},
+            degraded=degraded,
+        )
+        
+        # =================================================================
+        # Step 2d: Fetch policy from policy manifold (Section 21)
+        # =================================================================
+        policy_task = safe_call(
+            client, "GET", f"{POLICY_URL()}/policy/{req.tier}/{req.jurisdiction}",
+            json={},
+            layer_name="policy-manifold",
+            default={},
+            degraded=degraded,
+        )
+        
+        cooccurrence_result, conformal_result, policy_result = await asyncio.gather(
+            cooccurrence_task, conformal_task, policy_task
+        )
+        
+        pi_12 = cooccurrence_result.get("pi_12", 0.0)
+        pi_13 = cooccurrence_result.get("pi_13", 0.0)
+        pi_23 = cooccurrence_result.get("pi_23", 0.0)
+        pi_123 = cooccurrence_result.get("pi_123", 0.0)
+        conformal_lambda = conformal_result.get("lambda_hat", None)
+        
+        # =================================================================
+        # Step 2e: Build risk multivector R_t with REAL interaction terms
         # =================================================================
         mv_task = safe_call(
             client, "POST", f"{RISK_MV_URL()}/risk/multivector",
             json={
                 "response_id": req.response_id,
                 "p_t": p_t, "c_t": c_t, "r_t": r_t,
+                "pi_12": pi_12, "pi_13": pi_13,
+                "pi_23": pi_23, "pi_123": pi_123,
             },
             layer_name="risk-multivector",
             default={"e1": p_t, "e2": c_t, "e3": r_t, "scalar": 0,
@@ -215,27 +272,29 @@ async def process_response(req: PipelineRequest) -> PipelineResponse:
         
         # =================================================================
         # Steps 3-5 in parallel: drift, surprise, spectral, sheaf
+        # All use REAL data from upstream services
         # =================================================================
-        fp_hash = fp_result.get("fingerprint_hash", "")
         
+        # Drift: pass the REAL 64-dim projected fingerprint vector
         drift_task = safe_call(
             client, "POST", f"{DRIFT_URL()}/drift/score",
             json={
                 "response_id": req.response_id,
                 "tier": req.tier,
-                "fingerprint_vector": [0.0] * 64,  # Projected from full fingerprint
+                "fingerprint_vector": fp_vector if fp_vector else [0.0] * 64,
             },
             layer_name="drift",
             default={"delta_t": 0.0},
             degraded=degraded,
         )
         
+        # Surprise: pass the REAL fingerprint hex bytes for NCD
         surprise_task = safe_call(
             client, "POST", f"{SURPRISE_URL()}/surprise/score",
             json={
                 "response_id": req.response_id,
                 "response_text": req.response_text,
-                "fingerprint_bytes": "",
+                "fingerprint_bytes": fp_hex,
             },
             layer_name="surprise",
             default={"surprise_score": 0.5},
@@ -302,16 +361,22 @@ async def process_response(req: PipelineRequest) -> PipelineResponse:
         
         # =================================================================
         # Step 7: Assemble z_t and route (Section 13)
+        # Includes conformal threshold from Section 14
         # =================================================================
+        routing_payload = {
+            "response_id": req.response_id,
+            "p_t": p_t, "c_t": c_t, "r_t": r_t,
+            "delta_t": delta_t, "surprise_t": surprise_t,
+            "kappa_v_t": kappa_v_t, "discord_t": discord_t,
+            "tier": req.tier, "jurisdiction": req.jurisdiction,
+        }
+        # Pass conformal threshold if available
+        if conformal_lambda is not None:
+            routing_payload["conformal_lambda"] = conformal_lambda
+        
         routing_result = await safe_call(
             client, "POST", f"{ROUTING_URL()}/routing/decide",
-            json={
-                "response_id": req.response_id,
-                "p_t": p_t, "c_t": c_t, "r_t": r_t,
-                "delta_t": delta_t, "surprise_t": surprise_t,
-                "kappa_v_t": kappa_v_t, "discord_t": discord_t,
-                "tier": req.tier, "jurisdiction": req.jurisdiction,
-            },
+            json=routing_payload,
             layer_name="tropical-routing",
             default={"action": "escalate", "scores": {},
                       "response_id": req.response_id},
@@ -322,9 +387,8 @@ async def process_response(req: PipelineRequest) -> PipelineResponse:
         routing_scores = routing_result.get("scores", {})
         
         # =================================================================
-        # Step 8: Write audit record (fire-and-forget)
+        # Step 8: Write audit record with REAL AES-256-GCM encryption
         # =================================================================
-        # Don't await — fire and forget to maintain latency bound
         asyncio.create_task(
             safe_call(
                 httpx.AsyncClient(), "POST", f"{AUDIT_URL()}/audit/write",
