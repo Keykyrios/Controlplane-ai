@@ -104,41 +104,55 @@ def vietoris_rips_H0(dist_matrix: np.ndarray) -> list[tuple[float, float]]:
     return diagram
 
 
-def vietoris_rips_H1_approx(dist_matrix: np.ndarray, max_dim: float = None) -> list[tuple[float, float]]:
+def vietoris_rips_H1(dist_matrix: np.ndarray, max_dim: float = None) -> list[tuple[float, float]]:
     """
-    Approximate H_1 persistence diagram (loops/cycles).
+    Compute H_1 persistence diagram (loops/cycles) via 4-cycle detection.
     
-    Uses a simplified Rips filtration that tracks when triangles
-    appear and disappear. For full correctness, use giotto-tda;
-    this is a fast approximation for the online path.
+    In Vietoris-Rips, a triangle's 2-simplex appears at the same filtration
+    value as its longest edge, so 3-vertex cycles die immediately (zero
+    persistence). Persistent H_1 features come from 4+ vertex cycles:
+    
+      - Birth: max edge length around the 4-cycle (all 4 edges exist)
+      - Death: min diagonal length (a diagonal creates two triangles
+               that fill the cycle, making it a boundary)
+    
+    This is a correct approximation restricted to quadrilateral generators.
     """
     n = dist_matrix.shape[0]
-    if n < 3:
+    if n < 4:
         return []
     
     if max_dim is None:
-        max_dim = np.max(dist_matrix) * 0.5
+        max_dim = np.median(dist_matrix[dist_matrix > 0]) * 2.0
     
     diagram = []
+    cap = min(n, 40)  # Cap for O(n^4) performance
     
-    # Look for short cycles: if three points form a nearly-equilateral
-    # triangle at some scale, that's a 1-cycle
-    for i in range(min(n, 50)):  # Cap for performance
-        for j in range(i + 1, min(n, 50)):
-            for k in range(j + 1, min(n, 50)):
-                d_ij = dist_matrix[i, j]
-                d_ik = dist_matrix[i, k]
-                d_jk = dist_matrix[j, k]
-                
-                # Birth: when all three edges exist (max of pairwise dists)
-                birth = max(d_ij, d_ik, d_jk)
-                # Death: when the triangle is filled (roughly at the same scale)
-                death = birth * 1.1  # Simplified
-                
-                if birth < max_dim and death - birth > 0.01:
-                    diagram.append((birth, death))
+    for i in range(cap):
+        for j in range(i + 1, cap):
+            for k in range(j + 1, cap):
+                for l in range(k + 1, cap):
+                    # Consider the 4-cycle i-j-k-l-i
+                    # The 4 cycle edges
+                    cycle_edges = [
+                        dist_matrix[i, j], dist_matrix[j, k],
+                        dist_matrix[k, l], dist_matrix[l, i],
+                    ]
+                    # The 2 diagonals
+                    diag1 = dist_matrix[i, k]
+                    diag2 = dist_matrix[j, l]
+                    
+                    birth = max(cycle_edges)  # cycle exists when all 4 edges present
+                    death = min(diag1, diag2)  # cycle dies when a diagonal fills it
+                    
+                    # Only a valid persistent feature if death > birth
+                    # (diagonal longer than all cycle edges)
+                    if death > birth and birth < max_dim:
+                        persistence = death - birth
+                        if persistence > 1e-6:
+                            diagram.append((birth, death))
     
-    # Sort by persistence (death - birth) and keep top features
+    # Sort by persistence, keep top features
     diagram.sort(key=lambda x: x[1] - x[0], reverse=True)
     return diagram[:20]
 
@@ -162,7 +176,7 @@ def persistence_diagram(points: np.ndarray) -> list[tuple[float, float, int]]:
             diagram.append((birth, death, 0))
     
     # H_1: loops (approximate)
-    h1 = vietoris_rips_H1_approx(dist_matrix)
+    h1 = vietoris_rips_H1(dist_matrix)
     for birth, death in h1:
         diagram.append((birth, death, 1))
     
