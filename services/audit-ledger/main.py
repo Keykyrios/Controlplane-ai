@@ -25,6 +25,7 @@ from collections import OrderedDict
 from typing import Optional
 
 import numpy as np
+
 try:
     from cryptography.hazmat.primitives.asymmetric.mlkem import MLKEM768PrivateKey
     _HAS_MLKEM = True
