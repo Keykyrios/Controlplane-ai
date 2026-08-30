@@ -23,8 +23,8 @@ dependencies = [
     # Simulation & queueing
     "simpy>=4.1.0",
     
-    # Cryptography
-    "cryptography>=43.0.0",
+    # Cryptography (ML-KEM-768 requires >= 47.0.0)
+    "cryptography>=47.0.0",
     
     # Data visualization (eval harness)
     "plotly>=5.24.0",
@@ -52,9 +52,6 @@ dev = [
 ]
 fhe = [
     "tenseal>=0.3.0",
-]
-pqc = [
-    # liboqs-python — install separately via pip install liboqs-python
 ]
 
 [tool.ruff]
